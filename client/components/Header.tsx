@@ -78,8 +78,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenContact }) => {
               <div className="relative">
                 <div className="absolute inset-0 bg-emerald-500/30 blur-xl rounded-full opacity-50 animate-pulse"></div>
                 <img
-                  src="/logos/logo.png"
+                  src="/assets/team/logos/logo.png"
                   alt="Pidgeon Solutions"
+                  onError={(e) => (e.currentTarget.src = '/logo.png')}
                   className="relative h-10 w-auto invert brightness-0 saturate-0 opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:rotate-[360deg] group-hover:scale-110"
                 />
               </div>

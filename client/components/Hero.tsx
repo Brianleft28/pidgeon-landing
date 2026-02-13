@@ -66,8 +66,9 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact }) => {
             <div className="relative mb-8 group">
               <div className="absolute inset-0 bg-emerald-500/30 blur-2xl rounded-full opacity-40 group-hover:opacity-60 transition-opacity duration-500"></div>
               <img
-                src="/assets/logo/logo.png"
+                src="/assets/team/logos/logo.png"
                 alt="Pidgeon Solutions Logo"
+                onError={(e) => (e.currentTarget.src = '/logo.png')}
                 className="relative w-48 md:w-64 h-auto object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-transform duration-500 hover:scale-105"
               />
             </div>

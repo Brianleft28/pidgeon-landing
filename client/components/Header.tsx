@@ -80,8 +80,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenContact }) => {
                 <img
                   src="/assets/team/logos/logo.png"
                   alt="Pidgeon Solutions"
-                  onError={(e) => (e.currentTarget.src = '/logo.png')}
-                  className="relative h-10 w-auto invert brightness-0 saturate-0 opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:rotate-[360deg] group-hover:scale-110"
+                  onError={(e) => (e.currentTarget.src = "/logo.png")}
+                  className="filter relative h-10 w-auto invert brightness-200 opacity-100 group-hover:opacity-100 transition-all duration-500 group-hover:rotate-[360deg] group-hover:scale-110"
                 />
               </div>
             </div>

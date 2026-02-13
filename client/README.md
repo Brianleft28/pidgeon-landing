@@ -29,11 +29,11 @@ Una Landing Page de alto rendimiento diseñada para una agencia de desarrollo de
 
 ## 🎨 Gestión de Assets (Logos)
 
-Para que la aplicación se visualice correctamente, debes colocar tus archivos de imagen en la carpeta pública:
+Coloca tus imágenes estáticas en la carpeta pública para que Vite las sirva desde la raíz `/assets` en tiempo de ejecución. Rutas usadas actualmente en esta app:
 
-1.  **Logo Principal:** `/public/assets/logo.png` (Usado en el Hero).
-2.  **Icono Footer:** `/public/assets/logo-icon.png` (Usado en el pie de página).
-3.  **Fotos de Equipo:** `/public/assets/team/` (brian.jpg, alejandro.jpg, thomas.jpg).
+1.  **Logo (Header / Hero):** `/assets/team/logos/logo.png` (fallback: `/logo.png`).
+2.  **Fotos de Equipo:** `/assets/team/logos/` (ej.: `brian.png`, `alejandro.png`, `thomas.png`).
+3.  **Otros assets estáticos:** coloca archivos bajo `public/assets/` y accede a ellos desde `/assets/...` en el navegador.
 
 ## 💳 Integración de Pagos
 

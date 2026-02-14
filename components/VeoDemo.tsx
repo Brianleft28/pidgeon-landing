@@ -1,12 +1,15 @@
+
 import React, { useState, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { useTranslation } from '../App';
+
+type Mode = 'video' | 'image' | 'edit';
 
 export const VeoDemo: React.FC = () => {
   const { t } = useTranslation();
   
   // State for Modes
-  const [mode, setMode] = useState<'video' | 'image'>('video');
+  const [mode, setMode] = useState<Mode>('video');
 
   // Shared / Video State
   const [image, setImage] = useState<string | null>(null);
@@ -23,7 +26,7 @@ export const VeoDemo: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const SAMPLE_PROMPT = "Cinematic abstract background for a tech startup website. Dark slate and obsidian color palette with subtle bioluminescent cyan glowing lines flowing like digital data streams. Deep depth of field, soft bokeh. Slow, smooth, seamless looping motion. High-tech server room aesthetic but abstract and clean. Minimalist, no text, no heavy contrasts. 4K resolution, Unreal Engine 5 render style";
+  const SAMPLE_PROMPT = "Cinematic abstract background, dark slate and obsidian, cyan glowing lines, high-tech server room aesthetic. 4K, Unreal Engine 5.";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,6 +37,7 @@ export const VeoDemo: React.FC = () => {
         setImage(result);
         setMimeType(file.type);
         setVideoUrl(null);
+        setImageUrl(null);
         setError(null);
       };
       reader.readAsDataURL(file);
@@ -49,9 +53,14 @@ export const VeoDemo: React.FC = () => {
       }
       return true;
     }
-    throw new Error("AI Studio environment not detected.");
+    // Fallback if environment doesn't have aistudio wrapper (standard development)
+    if (!process.env.API_KEY) {
+       throw new Error("API Key missing.");
+    }
+    return true;
   };
 
+  // Feature: Animate Images with Veo
   const handleGenerateVideo = async () => {
     if (!image) return;
     setError(null);
@@ -81,8 +90,6 @@ export const VeoDemo: React.FC = () => {
         operation = await ai.operations.getVideosOperation({ operation: operation });
       }
 
-      if (operation.error) throw new Error(operation.error.message || "Video generation failed");
-
       const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
       if (!downloadLink) throw new Error("No video URI returned");
 
@@ -94,19 +101,64 @@ export const VeoDemo: React.FC = () => {
 
     } catch (err: any) {
       console.error(err);
-      if (err.message?.includes("Requested entity was not found")) {
-         const aistudio = (window as any).aistudio;
-         if (aistudio) {
-            await aistudio.openSelectKey();
-            setError("API Key refresh required. Please try again.");
-         }
-      } else {
-        setError(err.message || "An unexpected error occurred");
-      }
+      setError(err.message || "Video generation failed");
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Feature: Nano Banana Powered App (Image Editing)
+  const handleEditImage = async () => {
+    if (!image || !prompt) {
+       setError("Image and prompt required for editing.");
+       return;
+    }
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      await checkApiKey();
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const base64Data = image.split(',')[1];
+      
+      // Using gemini-2.5-flash-image for editing
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: mimeType
+              }
+            },
+            {
+              text: prompt
+            }
+          ]
+        }
+      });
+
+      let foundImage = false;
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            const url = `data:image/png;base64,${part.inlineData.data}`;
+            setImageUrl(url);
+            foundImage = true;
+            break;
+          }
+        }
+      }
+      if (!foundImage) throw new Error("No edited image generated.");
+
+    } catch (err: any) {
+       console.error(err);
+       setError(err.message || "Image edit failed");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const handleGenerateImage = async () => {
     if (!prompt) {
@@ -144,45 +196,48 @@ export const VeoDemo: React.FC = () => {
 
     } catch (err: any) {
       console.error(err);
-      if (err.message?.includes("Requested entity was not found")) {
-        const aistudio = (window as any).aistudio;
-        if (aistudio) {
-          await aistudio.openSelectKey();
-          setError("API Key refresh required. Please try again.");
-        }
-      } else {
-        setError(err.message || "An unexpected error occurred");
-      }
+      setError(err.message || "Image gen failed");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const executeAction = () => {
+      if (mode === 'video') handleGenerateVideo();
+      else if (mode === 'edit') handleEditImage();
+      else handleGenerateImage();
+  }
+
   return (
-    <section id="lab" className="py-24 bg-slate-950 border-t border-slate-900">
-      <div className="container mx-auto px-6 md:px-12">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+    <div className="w-full">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 mb-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-wider">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Beta Feature
+            AI Lab
           </div>
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">{t.veo.title}</h2>
-          <p className="text-slate-400 max-w-xl mx-auto">{t.veo.subtitle}</p>
+          <h3 className="text-2xl font-bold text-white mb-2">{t.veo.title}</h3>
+          <p className="text-slate-400 text-sm max-w-xl mx-auto">{t.veo.subtitle}</p>
         </div>
 
-        <div className="max-w-4xl mx-auto bg-slate-900/50 border border-slate-800 rounded-3xl p-8 backdrop-blur-sm">
+        <div className="max-w-4xl mx-auto bg-[#0b1121] border border-slate-800 rounded-3xl p-6 md:p-8 backdrop-blur-sm shadow-xl">
           
           {/* Tabs */}
-          <div className="flex gap-4 mb-8 border-b border-slate-800 pb-4">
+          <div className="flex gap-6 mb-8 border-b border-slate-800 pb-4 overflow-x-auto">
              <button 
                 onClick={() => { setMode('video'); setError(null); }}
-                className={`text-sm font-bold uppercase tracking-wide pb-4 -mb-4 border-b-2 transition-all ${mode === 'video' ? 'text-emerald-400 border-emerald-500' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
+                className={`text-sm font-bold uppercase tracking-wide pb-4 -mb-4 border-b-2 transition-all whitespace-nowrap ${mode === 'video' ? 'text-emerald-400 border-emerald-500' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
              >
-                {t.veo.modeVideo}
+                {t.veo.modeVideo} (Veo)
+             </button>
+             <button 
+                onClick={() => { setMode('edit'); setError(null); }}
+                className={`text-sm font-bold uppercase tracking-wide pb-4 -mb-4 border-b-2 transition-all whitespace-nowrap ${mode === 'edit' ? 'text-emerald-400 border-emerald-500' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
+             >
+                Editar (Nano)
              </button>
              <button 
                 onClick={() => { setMode('image'); setError(null); }}
-                className={`text-sm font-bold uppercase tracking-wide pb-4 -mb-4 border-b-2 transition-all ${mode === 'image' ? 'text-emerald-400 border-emerald-500' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
+                className={`text-sm font-bold uppercase tracking-wide pb-4 -mb-4 border-b-2 transition-all whitespace-nowrap ${mode === 'image' ? 'text-emerald-400 border-emerald-500' : 'text-slate-500 border-transparent hover:text-slate-300'}`}
              >
                 {t.veo.modeImage}
              </button>
@@ -193,8 +248,8 @@ export const VeoDemo: React.FC = () => {
             {/* Input Side */}
             <div className="space-y-6">
               
-              {/* Conditional Inputs based on Mode */}
-              {mode === 'video' ? (
+              {/* Upload Area for Video & Edit Modes */}
+              {(mode === 'video' || mode === 'edit') && (
                 <>
                   <div 
                     onClick={() => fileInputRef.current?.click()}
@@ -215,16 +270,20 @@ export const VeoDemo: React.FC = () => {
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                   </div>
                   
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.veo.aspectRatio}</label>
-                    <div className="flex gap-2">
-                        <button onClick={() => setAspectRatio('16:9')} className={`flex-1 py-2 text-sm rounded-lg border transition-all ${aspectRatio === '16:9' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>16:9</button>
-                        <button onClick={() => setAspectRatio('9:16')} className={`flex-1 py-2 text-sm rounded-lg border transition-all ${aspectRatio === '9:16' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>9:16</button>
+                  {mode === 'video' && (
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.veo.aspectRatio}</label>
+                        <div className="flex gap-2">
+                            <button onClick={() => setAspectRatio('16:9')} className={`flex-1 py-2 text-sm rounded-lg border transition-all ${aspectRatio === '16:9' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>16:9</button>
+                            <button onClick={() => setAspectRatio('9:16')} className={`flex-1 py-2 text-sm rounded-lg border transition-all ${aspectRatio === '9:16' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>9:16</button>
+                        </div>
                     </div>
-                  </div>
+                  )}
                 </>
-              ) : (
-                /* IMAGE MODE CONFIG */
+              )}
+
+              {/* Image Size Config */}
+              {mode === 'image' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.veo.imageSize}</label>
                   <div className="flex gap-2">
@@ -241,10 +300,12 @@ export const VeoDemo: React.FC = () => {
                 </div>
               )}
 
-              {/* Shared Prompt Input */}
+              {/* Prompt Input */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">{t.veo.promptLabel}</label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      {mode === 'edit' ? "Instrucción de Edición" : t.veo.promptLabel}
+                  </label>
                   <button onClick={() => setPrompt(SAMPLE_PROMPT)} className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-wide flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
                     {t.veo.magicPrompt}
@@ -254,17 +315,17 @@ export const VeoDemo: React.FC = () => {
                     rows={4}
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    placeholder={t.veo.promptPlaceholder}
+                    placeholder={mode === 'edit' ? "Ej: Agrega un filtro retro..." : t.veo.promptPlaceholder}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors placeholder-slate-600 resize-none"
                 />
               </div>
 
               {/* Action Button */}
               <button 
-                onClick={mode === 'video' ? handleGenerateVideo : handleGenerateImage}
-                disabled={isLoading || (mode === 'video' && !image) || (mode === 'image' && !prompt)}
+                onClick={executeAction}
+                disabled={isLoading || ((mode === 'video' || mode === 'edit') && !image) || !prompt}
                 className={`w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all
-                  ${isLoading || (mode === 'video' && !image) || (mode === 'image' && !prompt)
+                  ${isLoading || ((mode === 'video' || mode === 'edit') && !image) || !prompt
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
                     : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]'}
                 `}
@@ -275,12 +336,12 @@ export const VeoDemo: React.FC = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    {t.veo.generating}
+                    Procesando...
                   </>
                 ) : (
                   <>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    {mode === 'video' ? t.veo.generate : t.veo.generateImage}
+                    {mode === 'video' ? "Animar Video" : mode === 'edit' ? "Editar Imagen" : "Generar Imagen"}
                   </>
                 )}
               </button>
@@ -290,10 +351,6 @@ export const VeoDemo: React.FC = () => {
                   {error}
                 </div>
               )}
-              
-              <div className="text-center text-xs text-slate-500">
-                Requires a paid Google Cloud Project API Key. <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="underline hover:text-emerald-500">Learn more</a>.
-              </div>
             </div>
 
             {/* Output Side */}
@@ -314,8 +371,7 @@ export const VeoDemo: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
-    </section>
+    </div>
   );
 };
 
@@ -324,12 +380,12 @@ const Placeholder = ({ isLoading }: { isLoading: boolean }) => (
         {isLoading ? (
             <div className="space-y-4">
             <div className="w-16 h-16 border-4 border-slate-700 border-t-emerald-500 rounded-full animate-spin mx-auto"></div>
-            <p className="animate-pulse">Processing media...</p>
+            <p className="animate-pulse">Renderizando Media...</p>
             </div>
         ) : (
             <>
             <svg className="w-16 h-16 mx-auto mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-            <p>Generated content will appear here.</p>
+            <p>El contenido generado aparecerá aquí.</p>
             </>
         )}
     </div>

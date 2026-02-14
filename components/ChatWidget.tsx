@@ -18,15 +18,12 @@ export const ChatWidget: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatSessionRef = useRef<Chat | null>(null);
 
-  // Load chat history from localStorage on component mount
   useEffect(() => {
     try {
       const savedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (savedHistory) {
         const parsedHistory = JSON.parse(savedHistory);
         if (Array.isArray(parsedHistory) && parsedHistory.length > 0) {
-          // FIX: The original type cast `as Message[]` was unsafe and hid a type error.
-          // We must validate the data from localStorage to ensure it matches the `Message` type.
           const validHistory: Message[] = parsedHistory.filter(
               (m: any): m is Message =>
               (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
@@ -45,7 +42,6 @@ export const ChatWidget: React.FC = () => {
     }
   }, [t.chat.initial]);
 
-  // Save chat history to localStorage whenever messages change
   useEffect(() => {
     try {
       if (messages.length > 1 || (messages.length === 1 && messages[0].content !== t.chat.initial)) {
@@ -70,8 +66,7 @@ export const ChatWidget: React.FC = () => {
 
     const userMsg = inputValue;
     setInputValue('');
-    // FIX: Explicitly type newUserMessage and currentMessages to prevent type widening issues
-    // that can occur during complex type inference within the same function scope.
+    
     const newUserMessage: Message = { role: 'user', content: userMsg };
     const currentMessages: Message[] = [...messages, newUserMessage];
     setMessages(currentMessages);
@@ -83,8 +78,6 @@ export const ChatWidget: React.FC = () => {
         const history = currentMessages.slice(0, -1)
           .filter(m => m.content)
           .map(msg => {
-            // FIX: Explicitly define the role type to prevent potential mis-inference by TypeScript.
-            // The role for the Gemini API history must be 'user' or 'model'.
             const role: 'user' | 'model' = msg.role === 'assistant' ? 'model' : 'user';
             return {
               role,
@@ -93,11 +86,11 @@ export const ChatWidget: React.FC = () => {
           });
 
         chatSessionRef.current = ai.chats.create({
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-3-pro-preview', // Feature: Use Gemini 3 Pro
           history: history,
           config: {
-            thinkingConfig: { thinkingBudget: 32768 },
-            systemInstruction: "You are the advanced AI Core of Pidgeon Solutions. Your persona is technical, precise, and helpful. You reside in a terminal interface. You are an expert in software architecture, automation, and digital infrastructure. Keep responses concise and technical unless asked to explain simply."
+            thinkingConfig: { thinkingBudget: 32768 }, // Feature: Enable Max Thinking Budget
+            systemInstruction: "You are the advanced AI Core of Pidgeon Solutions. Your persona is technical, precise, and helpful. You reside in a terminal interface. You are an expert in software architecture, automation, and digital infrastructure. You use advanced reasoning (Thinking Mode) to solve complex user problems."
           }
         });
       }
@@ -147,7 +140,7 @@ export const ChatWidget: React.FC = () => {
         <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800">
           <div className="flex items-center gap-2">
              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-             <span className="text-xs font-bold text-slate-400">PIDGEON CORE // TERMINAL</span>
+             <span className="text-xs font-bold text-slate-400">PIDGEON CORE // GEMINI-3</span>
           </div>
           <div className="flex items-center gap-3">
             <button 

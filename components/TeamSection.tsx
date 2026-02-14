@@ -3,15 +3,6 @@ import React from 'react';
 import { useTranslation } from '../App';
 import { VeoTeamBackground } from './VeoTeamBackground';
 
-/**
- * Mapped images for the team members.
- */
-const teamImages: Record<string, string> = {
-  "Brian Benegas": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80",
-  "Gastón Alejandro": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80",
-  "Thomas Pineda": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80"
-};
-
 interface TeamMember {
   name: string;
   role: string;
@@ -36,6 +27,10 @@ const TeamMemberCard: React.FC<TeamMember> = ({ name, role, description, link, i
                 alt={name}
                 className="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition-all duration-500"
                 style={{ objectPosition: imagePosition || 'center top' }}
+                onError={(e) => {
+                  // Fallback to a placeholder if the local file isn't found
+                  e.currentTarget.src = `https://ui-avatars.com/api/?name=${name}&background=10b981&color=fff`;
+                }}
             />
         </div>
       </div>
@@ -91,7 +86,6 @@ export const TeamSection: React.FC = () => {
             <TeamMemberCard 
                 key={index} 
                 {...member} 
-                image={teamImages[member.name] || member.image} 
             />
           ))}
         </div>

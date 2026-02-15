@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useTranslation } from '../App';
+import { useTranslation } from '../contexts';
 
 export const TechEducation: React.FC = () => {
   const { t } = useTranslation();

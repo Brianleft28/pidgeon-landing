@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useTranslation, useModal } from '../App';
+import { useTranslation, useModal } from '../contexts';
 import { Sidebar } from './Sidebar';
 
 export const Header: React.FC = () => {
@@ -57,9 +57,9 @@ export const Header: React.FC = () => {
           <div className="flex items-center justify-between px-6 py-3 rounded-full bg-[#0a0a0a]/90 backdrop-blur-md border border-slate-800 shadow-2xl shadow-black/50">
             
             {/* Logo - Inverted for dark mode compatibility with black asset */}
-            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               <img 
-                src="/logo.png" 
+                src="/assets/logo.png" 
                 alt="Pidgeon Solutions" 
                 className="h-8 w-auto object-contain invert brightness-0 filter animate-subtle-pulse" 
               />

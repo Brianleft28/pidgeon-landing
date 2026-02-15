@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useTranslation } from '../App';
+import { useTranslation } from '../contexts';
 import { VeoTeamBackground } from './VeoTeamBackground';
 
 interface TeamMember {
@@ -20,7 +20,7 @@ const TeamMemberCard: React.FC<TeamMember> = ({ name, role, description, link, i
       {/* Image */}
       <div className="flex justify-center md:justify-start mb-6">
         <div 
-          className="w-20 h-20 rounded-xl overflow-hidden border border-white/10 group-hover:border-emerald-500/30 transition-colors"
+          className="w-28 h-28 md:w-32 md:h-32 rounded-xl overflow-hidden border border-white/10 group-hover:border-emerald-500/30 transition-colors"
         >
             <img 
                 src={image || ""} 

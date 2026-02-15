@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useTranslation } from '../App';
+import { useTranslation } from '../contexts';
 
 interface PaymentModalProps {
   isOpen: boolean;

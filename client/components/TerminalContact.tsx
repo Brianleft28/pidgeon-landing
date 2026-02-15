@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation, useModal } from '../App';
+import { useTranslation, useModal } from '../contexts';
 
 export const ContactCTA: React.FC = () => {
   const { t } = useTranslation();

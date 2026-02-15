@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useTranslation, useModal } from '../App';
+import { useTranslation, useModal } from '../contexts';
 import { VeoHeroBackground } from './VeoHeroBackground';
 
 export const Hero: React.FC = () => {
@@ -96,7 +96,7 @@ export const Hero: React.FC = () => {
                     
                     {/* Actual Logo Asset */}
                     <img 
-                        src="/assets/logo_hero.png" 
+                        src="public/assets/logo2.png" 
                         alt="Hero Logo" 
                         className="relative z-10 w-full h-auto object-contain max-h-[400px] invert brightness-0 filter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
                         onError={(e) => {
@@ -105,10 +105,6 @@ export const Hero: React.FC = () => {
                             e.currentTarget.parentElement?.classList.add('border', 'border-dashed', 'border-slate-700', 'rounded-xl');
                         }}
                     />
-                    {/* Fallback Text if image fails (hidden by default if image loads) */}
-                    <div className="absolute inset-0 flex items-center justify-center -z-10">
-                         <span className="text-slate-600 font-mono text-sm">/assets/logo_hero.png</span>
-                    </div>
                 </div>
             </div>
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from '../App';
+import { useTranslation } from '../contexts';
 
 export const AboutSection: React.FC = () => {
   const { t } = useTranslation();

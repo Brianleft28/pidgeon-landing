@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
-import { useTranslation } from '../App';
+import { useTranslation } from '../contexts';
 
 type Message = {
   role: 'user' | 'assistant';

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { useTranslation, useModal } from '../App';
+import { useTranslation, useModal } from '../contexts';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -64,7 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         {/* Header: Logo & Close */}
         <div className="flex items-center justify-between p-8 border-b border-slate-900 relative z-10">
           <div className="flex items-center gap-3">
-             <img src="/logo.png" alt="Pidgeon" className="h-8 w-auto invert brightness-0 filter" />
+             <img src="/assets/logo.png" alt="Pidgeon" className="h-8 w-auto invert brightness-0 filter" />
           </div>
           <button 
             onClick={onClose}

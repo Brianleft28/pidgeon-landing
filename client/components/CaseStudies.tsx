@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from '../App';
+import { useTranslation } from '../contexts';
 import { CaseStudyProps } from '../types';
 
 const CaseCard: React.FC<CaseStudyProps> = ({ client, metric, description, tags }) => (

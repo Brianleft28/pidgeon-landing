@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useTranslation, useModal } from '../App';
+import { useTranslation, useModal } from '../contexts';
 import { PricingBackground } from './PricingBackground';
 import { IconStarter, IconBusiness, IconEnterprise } from './PlanIcons';
 

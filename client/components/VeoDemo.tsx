@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { useTranslation } from '../App';
+import { useTranslation } from '../contexts';
 
 type Mode = 'video' | 'image' | 'edit';
 

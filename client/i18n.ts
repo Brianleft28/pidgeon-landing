@@ -41,7 +41,7 @@ export const translations = {
         description: "Guardian of the code and servers. Ensuring 99.9% uptime and robust architecture.",
         link: "https://github.com/brianleft28",
         linkType: 'github', 
-        image: '/brian.png',
+        image: '/assets/brian.png',
         imagePosition: 'center 15%' 
       },
       { 
@@ -50,7 +50,7 @@ export const translations = {
         description: "The mind behind the aesthetics. Visualizing user experiences that convert.",
         link: "https://www.behance.net/thomasepineda", 
         linkType: 'behance',
-        image: '/thomas.png',
+        image: '/assets/thomas.png',
         imagePosition: 'center center' 
       },
       { 
@@ -59,7 +59,7 @@ export const translations = {
         description: "Aligning technology with business goals for maximum efficiency.",
         link: "/assets/gaston_alejandro_cv.pdf", 
         linkType: 'pdf', 
-        image: '/alejandro.png' 
+        image: '/assets/alejandro.png' 
       }
     ],
     ctaTitle: "Ready to launch?",
@@ -308,7 +308,7 @@ export const translations = {
         description: "Guardián del código y los servidores. Asegurando 99.9% uptime y arquitectura robusta.",
         link: "https://github.com/brianleft28",
         linkType: 'github', 
-        image: '/brian.png',
+        image: '/assets/brian.png',
         imagePosition: 'center 15%' 
       },
       { 
@@ -317,7 +317,7 @@ export const translations = {
         description: "La mente detrás de la estética. Visualizando experiencias de usuario que convierten.",
         link: "https://www.behance.net/thomasepineda", 
         linkType: 'behance',
-        image: '/thomas.png',
+        image: '/assets/thomas.png',
         imagePosition: 'center center' 
       },
       { 
@@ -326,7 +326,7 @@ export const translations = {
         description: "Alineando la tecnología con los objetivos de negocio para máxima eficiencia.",
         link: "/assets/gaston_alejandro_cv.pdf", 
         linkType: 'pdf', 
-        image: '/alejandro.png' 
+        image: '/assets/alejandro.png' 
       }
     ],
     ctaTitle: "¿Listo para lanzar?",

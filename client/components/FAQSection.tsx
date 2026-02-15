@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTranslation } from '../App';
+import { useTranslation } from '../contexts';
 
 interface FAQItemProps {
   question: string;

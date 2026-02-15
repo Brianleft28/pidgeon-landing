@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { useState } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { AboutSection } from './components/AboutSection';
@@ -14,31 +14,7 @@ import { ContactModal } from './components/ContactModal';
 import { PaymentModal } from './components/PaymentModal';
 import { FloatingActions } from './components/FloatingActions';
 
-interface LanguageContextType {
-  lang: Language;
-  t: typeof translations.EN;
-  setLang: (lang: Language) => void;
-}
-
-interface ModalContextType {
-  openContactModal: (planName?: string) => void;
-  openPaymentModal: (planName: string, amount: number) => void;
-}
-
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
-const ModalContext = createContext<ModalContextType | undefined>(undefined);
-
-export const useTranslation = () => {
-  const context = useContext(LanguageContext);
-  if (!context) throw new Error("useTranslation must be used within LanguageProvider");
-  return context;
-};
-
-export const useModal = () => {
-  const context = useContext(ModalContext);
-  if (!context) throw new Error("useModal must be used within ModalProvider");
-  return context;
-};
+import { LanguageContext, ModalContext } from './contexts';
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('ES'); // Default to ES
@@ -109,7 +85,7 @@ const App: React.FC = () => {
           <footer className="relative z-10 py-8 border-t border-slate-900 bg-slate-950/80 backdrop-blur-md">
             <div className="container mx-auto px-6 md:px-12 flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-2">
-                 <img src="/logo.png" alt="Pidgeon Solutions" className="h-8 w-auto object-contain invert brightness-0 filter" />
+                 <img src="/assets/logo.png" alt="Pidgeon Solutions" className="h-8 w-auto object-contain invert brightness-0 filter" />
               </div>
               <div className="text-sm text-slate-500">
                 © 2026 Pidgeon Solutions.

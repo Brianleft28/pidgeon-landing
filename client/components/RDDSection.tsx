@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from '../App';
+import { useTranslation } from '../contexts';
 import { VeoBackground } from './VeoBackground';
 import { IconBrain, IconConnect, IconAuto, IconVideo } from './GlassIcons';
 

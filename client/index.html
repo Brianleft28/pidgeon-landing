@@ -12,7 +12,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #020617; /* slate-950 */
+            background-color: #020617;
             color: #e2e8f0;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
@@ -21,10 +21,9 @@
             font-family: 'Plus Jakarta Sans', sans-serif;
         }
         ::selection {
-            background-color: #06b6d4; /* cyan-500 */
+            background-color: #06b6d4;
             color: #020617;
         }
-        /* Hide scrollbar for cleaner look in some elements */
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -33,20 +32,12 @@
             scrollbar-width: none;
         }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.40.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
+    <link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
+    <script type="module" src="/main.ts"></script>
+</body>
+</html>
 </body>
 </html>

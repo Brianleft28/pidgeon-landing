@@ -1,15 +1,21 @@
-import { Injectable, InternalServerErrorException } from "@nestjs/common";
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from "@nestjs/common";
 import MercadoPagoConfig, { Payment } from "mercadopago";
 
 @Injectable()
-export class MercadopagoService {
+export class MercadoPagoService {
   private client: MercadoPagoConfig;
+  private readonly logger = new Logger(MercadoPagoService.name);
 
   constructor() {
-    // RECUERDA: Mueve este string a tus variables de entorno (.env) como MP_ACCESS_TOKEN
-    this.client = new MercadoPagoConfig({
-      accessToken: process.env.MP_ACCESS_TOKEN || "TU_ACCESS_TOKEN_DE_PRUEBA",
-    });
+    const accessToken = process.env.MP_ACCESS_TOKEN;
+    if (!accessToken) {
+      this.logger.warn("MP_ACCESS_TOKEN not set — payments will fail");
+    }
+    this.client = new MercadoPagoConfig({ accessToken: accessToken || "" });
   }
 
   async processPayment(createPaymentDto: any) {
@@ -32,10 +38,21 @@ export class MercadopagoService {
           },
         },
       });
+
+      // TODO: On approved payment, send confirmation email from Pidgeon domain
+      // if (result.status === 'approved') {
+      //   await this.emailService.sendPaymentConfirmation({
+      //     to: createPaymentDto.payer.email,
+      //     planName: createPaymentDto.description,
+      //     amount: createPaymentDto.transaction_amount,
+      //     paymentId: result.id,
+      //   });
+      // }
+
       return result;
     } catch (error) {
-      console.error("Error procesando pago:", error);
-      throw new InternalServerErrorException(error);
+      this.logger.error("Error procesando pago:", error);
+      throw new InternalServerErrorException("Payment processing failed");
     }
   }
 }

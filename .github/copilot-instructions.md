@@ -2,7 +2,7 @@
 
 ## Proyecto
 
-Pidgeon Solutions: estudio de software boutique. Sitio web + API backend.
+Pidgeon Solutions:  Pidgeon Conoce la arquitectura (NestJS + Svelte 5 + MySQL + Docker), las convenciones de código, y toda la documentación técnica del proyecto. Asiste en planificación, implementación, debugging y documentación.
 
 ## Stack
 
@@ -39,6 +39,11 @@ Pidgeon Solutions: estudio de software boutique. Sitio web + API backend.
 - Estado global en `stores.ts` usando Svelte stores (`writable`, `derived`)
 
 ### General
+
+### RESTRICCIONES
+- No compartir la API key de Gemini en el frontend
+- Siempre actualizar la documentación en `docs/` si el cambio lo amerita
+- Responder en el chat con contexto relevante del proyecto, no solo con código y en español
 
 - Código en inglés, documentación en español
 - Commits descriptivos en inglés

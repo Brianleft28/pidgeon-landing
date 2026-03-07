@@ -12,6 +12,7 @@
   import ContactModal from './components/ContactModal.svelte';
   import PaymentModal from './components/PaymentModal.svelte';
   import FloatingActions from './components/FloatingActions.svelte';
+  import ChatWidget from './components/ChatWidget.svelte';
 </script>
 
 <div class="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30 selection:text-emerald-100 scroll-smooth">
@@ -33,6 +34,7 @@
   </main>
 
   <FloatingActions />
+  <ChatWidget />
 
   <ContactModal
     isOpen={$isContactModalOpen}

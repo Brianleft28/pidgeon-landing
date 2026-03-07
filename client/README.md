@@ -1,20 +1,43 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Pidgeon Solutions — Frontend
 
-# Run and deploy your AI Studio app
+> SPA construida con **Svelte 5** + **Vite 6** + **Tailwind CSS**.
 
-This contains everything you need to run your app locally.
+## Desarrollo Local
 
-View your app in AI Studio: https://ai.studio/apps/drive/19j3_2lWjRyN3NRNcey8DlYZ-T1Wjjt6k
+```bash
+pnpm install
+pnpm run dev          # http://localhost:5173
+```
 
-## Run Locally
+Crear `.env.local`:
 
-**Prerequisites:**  Node.js
+```env
+VITE_API_URL=http://localhost:3000
+```
 
+## Build
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```bash
+pnpm run build        # Output en dist/
+```
+
+## Estructura
+
+```
+client/
+├── components/       # Componentes Svelte (.svelte)
+├── i18n.ts           # Traducciones ES/EN
+├── stores.ts         # Estado global (writable/derived)
+├── types.ts          # Tipos TypeScript compartidos
+├── App.svelte        # Componente raíz
+└── main.ts           # Entry point
+```
+
+## Convenciones
+
+- **Runes**: `$state`, `$derived`, `$effect` (NO API legacy)
+- **i18n**: Todo texto de UI en `i18n.ts`, nunca hardcodeado
+- **Estilos**: Tailwind utility classes inline
+- **Componentes**: PascalCase (`MiComponente.svelte`)
+
+> 📖 Documentación completa: [../docs/arquitectura/frontend.md](../docs/arquitectura/frontend.md)

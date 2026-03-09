@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, lang, openContactModal } from '../stores';
+  import { t, lang, openContactModal, openAuthModal, isLoggedIn, currentUser, logout } from '../stores';
 
   let { isOpen, onClose }: { isOpen: boolean; onClose: () => void } = $props();
 
@@ -87,6 +87,28 @@
 
       <!-- Actions -->
       <div class="mt-12 space-y-6">
+        <!-- Auth -->
+        {#if $isLoggedIn}
+          <div class="flex items-center justify-between bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <span class="text-emerald-400 text-sm font-bold">{$currentUser?.email?.[0]?.toUpperCase()}</span>
+              </div>
+              <span class="text-sm text-slate-300 truncate max-w-[180px]">{$currentUser?.email}</span>
+            </div>
+            <button onclick={() => { onClose(); logout(); }} class="text-xs text-slate-500 hover:text-red-400 transition-colors">
+              {$t.auth.logoutButton}
+            </button>
+          </div>
+        {:else}
+          <button
+            onclick={() => { onClose(); openAuthModal(); }}
+            class="w-full py-4 border border-slate-700 text-white font-bold rounded-xl hover:border-emerald-500/50 hover:bg-slate-900 transition-all"
+          >
+            {$t.auth.loginCta}
+          </button>
+        {/if}
+
         <button
           onclick={() => { onClose(); openContactModal(); }}
           class="w-full py-4 bg-emerald-500 text-slate-950 font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]"

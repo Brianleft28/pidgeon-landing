@@ -1,6 +1,8 @@
 <script lang="ts">
   import { t } from '../stores';
 
+  declare const MercadoPago: any;
+
   let { isOpen, onClose, planName, amount }: {
     isOpen: boolean;
     onClose: () => void;
@@ -8,23 +10,45 @@
     amount: number;
   } = $props();
 
-  let selectedMethod = $state<'mp' | 'paypal' | 'card'>('mp');
+  const API_URL = (import.meta as any).env?.VITE_API_URL
+    ?? process.env.VITE_API_URL
+    ?? 'http://localhost:3000';
+
+  const MP_PUBLIC_KEY = (import.meta as any).env?.VITE_MP_PUBLIC_KEY
+    ?? process.env.VITE_MP_PUBLIC_KEY
+    ?? '';
+
   let closeButtonRef = $state<HTMLButtonElement>();
   let modalRef = $state<HTMLDivElement>();
-  let methodBtns = $state<(HTMLButtonElement | null)[]>([null, null, null]);
+  let cardFormContainerRef = $state<HTMLDivElement>();
 
-  const methods = [
-    { id: 'mp' as const, labelKey: 'mp', colorClass: 'text-sky-500', bgClass: 'bg-sky-500/10', borderClass: 'border-sky-500', disabled: false },
-    { id: 'paypal' as const, labelKey: 'paypal', colorClass: 'text-blue-600', bgClass: 'bg-blue-600/10', borderClass: 'border-blue-600', disabled: true, tooltip: 'En desarrollo / Coming Soon' },
-    { id: 'card' as const, labelKey: 'card', colorClass: 'text-indigo-400', bgClass: 'bg-indigo-500/10', borderClass: 'border-indigo-400', disabled: true, tooltip: 'En desarrollo / Coming Soon' },
-  ];
+  let isProcessing = $state(false);
+  let paymentError = $state('');
+  let paymentSuccess = $state(false);
+  let paymentStep = $state<'select' | 'mp-form' | 'paypal-soon'>('select');
+  let cardFormInstance: any = null;
 
+  // Initialize MP CardForm when modal opens AND step is mp-form
   $effect(() => {
+    if (isOpen && paymentStep === 'mp-form' && cardFormContainerRef && MP_PUBLIC_KEY) {
+      setTimeout(() => initCardForm(), 200);
+    }
+    if (isOpen && paymentStep !== 'mp-form') {
+      destroyCardForm();
+    }
     if (isOpen) {
       setTimeout(() => closeButtonRef?.focus(), 100);
     }
+    if (!isOpen) {
+      destroyCardForm();
+      isProcessing = false;
+      paymentError = '';
+      paymentSuccess = false;
+      paymentStep = 'select';
+    }
   });
 
+  // Keyboard trap for modal
   $effect(() => {
     if (!isOpen) return;
     function handleKeyDown(e: KeyboardEvent) {
@@ -45,30 +69,93 @@
     return () => document.removeEventListener('keydown', handleKeyDown);
   });
 
-  function handlePayment() {
-    alert(`Initiating payment for ${planName} ($${amount}) via ${selectedMethod.toUpperCase()}`);
-    onClose();
+  function initCardForm() {
+    if (typeof MercadoPago === 'undefined' || !MP_PUBLIC_KEY) return;
+    try {
+      const mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
+      cardFormInstance = mp.cardForm({
+        amount: String(amount),
+        iframe: true,
+        form: {
+          id: 'mp-card-form',
+          cardNumber: { id: 'mp-card-number', placeholder: '0000 0000 0000 0000' },
+          expirationDate: { id: 'mp-expiration-date', placeholder: 'MM/YY' },
+          securityCode: { id: 'mp-security-code', placeholder: '123' },
+          cardholderName: { id: 'mp-cardholder-name', placeholder: 'JOHN DOE' },
+          issuer: { id: 'mp-issuer', placeholder: 'Issuer' },
+          installments: { id: 'mp-installments', placeholder: 'Installments' },
+          identificationType: { id: 'mp-doc-type', placeholder: 'Doc Type' },
+          identificationNumber: { id: 'mp-doc-number', placeholder: '12345678' },
+        },
+        callbacks: {
+          onFormMounted: (error: any) => {
+            if (error) console.warn('CardForm mount error:', error);
+          },
+          onSubmit: async (event: Event) => {
+            event.preventDefault();
+            await processPayment();
+          },
+          onFetching: (resource: string) => {
+            isProcessing = true;
+            return () => { isProcessing = false; };
+          },
+        },
+      });
+    } catch (err) {
+      console.error('Error initializing MercadoPago CardForm:', err);
+    }
   }
 
-  function handleMethodKeyDown(e: KeyboardEvent, index: number) {
-    let nextIndex = -1;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-      nextIndex = (index + 1) % methods.length;
-      e.preventDefault();
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-      nextIndex = (index - 1 + methods.length) % methods.length;
-      e.preventDefault();
-    }
-    if (nextIndex !== -1 && !methods[nextIndex].disabled) {
-      selectedMethod = methods[nextIndex].id;
-      methodBtns[nextIndex]?.focus();
+  function destroyCardForm() {
+    if (cardFormInstance) {
+      try { cardFormInstance.unmount(); } catch { /* ignore */ }
+      cardFormInstance = null;
     }
   }
 
-  function getMethodLabel(key: string): string {
-    if (key === 'card') return 'Stripe / Card';
-    const m = ($t.paymentModal?.methods as Record<string, string>) ?? {};
-    return m[key] ?? key;
+  async function processPayment() {
+    if (!cardFormInstance) return;
+    isProcessing = true;
+    paymentError = '';
+
+    try {
+      const formData = cardFormInstance.getCardFormData();
+      const res = await fetch(`${API_URL}/mercado-pago/process-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: formData.token,
+          transaction_amount: amount,
+          description: planName,
+          installments: Number(formData.installments),
+          payment_method_id: formData.paymentMethodId,
+          payer: {
+            email: formData.cardholderEmail || 'customer@pidgeonsolutions.com',
+            identification: {
+              type: formData.identificationType,
+              number: formData.identificationNumber,
+            },
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
+
+      const result = await res.json();
+      if (result.status === 'approved') {
+        paymentSuccess = true;
+      } else {
+        paymentError = result.status_detail || 'Payment was not approved. Please try again.';
+      }
+    } catch (err: any) {
+      console.error('Payment error:', err);
+      paymentError = err.message || 'Payment processing failed.';
+    } finally {
+      isProcessing = false;
+    }
   }
 </script>
 
@@ -83,13 +170,13 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       bind:this={modalRef}
-      class="bg-[#0f172a] border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slideUp relative"
+      class="bg-[#0f172a] border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slideUp relative max-h-[90vh] overflow-y-auto"
       onclick={(e: MouseEvent) => e.stopPropagation()}
     >
       <button
         bind:this={closeButtonRef}
         onclick={onClose}
-        class="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-full p-1"
+        class="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-full p-1 z-10"
         aria-label="Close modal"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -113,80 +200,173 @@
           </div>
         </div>
 
-        <!-- Payment methods -->
-        <div class="space-y-3 mb-8" role="radiogroup" aria-label="Select Payment Method">
-          {#each methods as method, index}
-            {@const isSelected = selectedMethod === method.id}
-            {@const label = getMethodLabel(method.labelKey)}
-            <div class="relative group/tooltip">
-              <button
-                bind:this={methodBtns[index]}
-                role="radio"
-                aria-checked={isSelected}
-                aria-disabled={method.disabled}
-                tabindex={isSelected && !method.disabled ? 0 : -1}
-                disabled={method.disabled}
-                onclick={() => { if (!method.disabled) selectedMethod = method.id; }}
-                onkeydown={(e) => { if (!method.disabled) handleMethodKeyDown(e, index); }}
-                class="w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-900 group
-                  {method.disabled
-                    ? 'bg-slate-900/50 border-slate-800 opacity-50 cursor-not-allowed grayscale'
-                    : isSelected
-                      ? `${method.bgClass} ${method.borderClass} shadow-lg`
-                      : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-800'}"
-                aria-label={label}
-              >
-                <span class="flex items-center gap-4 text-white font-medium">
-                  <div class="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden {isSelected && !method.disabled ? 'bg-white/10' : 'bg-slate-800 group-hover:bg-slate-700'}">
-                    {#if method.id === 'mp'}
-                      <!-- Mercado Pago Logo -->
-                      <svg class="w-full h-full p-2 {isSelected ? method.colorClass : 'text-slate-400 group-hover:text-white'} transition-colors" version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
-                        <path style="fill:#FFFFFF" d="M475,241.439c0-81.074-100.726-147.162-224.988-147.162c-124.256,0-224.983,66.087-224.983,147.162c0,2.091-0.029,7.878-0.029,8.616c0,86.005,88.043,155.668,224.979,155.668C387.769,405.723,475,336.079,475,250.071C475,247.063,475,245.334,475,241.439z"/>
-                        <path style="fill:#3FB6E9" d="M466.386,241.367c0,76.431-96.855,138.391-216.334,138.391c-119.481,0-216.326-61.96-216.326-138.391c0-76.439,96.846-138.402,216.326-138.402C369.53,102.964,466.386,164.927,466.386,241.367z"/>
-                      </svg>
-                    {:else if method.id === 'paypal'}
-                      <!-- PayPal Logo -->
-                      <svg class="w-full h-full p-2 {isSelected ? method.colorClass : 'text-slate-400 group-hover:text-white'} transition-colors" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PayPal Logo">
-                        <path d="M19.64 5.92c-.36-1.57-1.63-2.38-3.79-2.38H6.5c-.5 0-.91.37-.99.86L2.68 20.9c-.04.25.15.48.41.48h3.33c.4 0 .74-.29.81-.68l.9-5.71h2.57c3.9 0 6.64-1.92 7.37-6.23.09-.54.12-1.04.12-1.51 0-2.32-.98-3.74-2.55-4.33z"/>
-                        <path d="M17.06 6.3c-.36-1.57-1.63-2.38-3.79-2.38H6.5c-.5 0-.91.37-.99.86L4 14.5h2.5l.65-4.14c.07-.4.41-.68.81-.68h3.75c3.55 0 6.09-1.74 6.78-5.32.08-.43.12-.86.12-1.28 0-1.89-.62-3.08-1.55-3.78z" class="opacity-40"/>
-                      </svg>
-                    {:else}
-                      <!-- Stripe / Card Logo -->
-                      <svg class="w-full h-full p-2 {isSelected ? method.colorClass : 'text-slate-400 group-hover:text-white'} transition-colors" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Stripe/Card Logo">
-                        <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                      </svg>
-                    {/if}
-                  </div>
-                  <span>{label}</span>
-                </span>
-
-                <div class="w-5 h-5 rounded-full border flex items-center justify-center transition-colors
-                  {method.disabled ? 'border-slate-700' : isSelected ? `border-current ${method.colorClass}` : 'border-slate-600 group-hover:border-slate-500'}">
-                  {#if isSelected && !method.disabled}
-                    <div class="w-2.5 h-2.5 rounded-full bg-current"></div>
-                  {/if}
-                </div>
-              </button>
-
-              {#if method.disabled && method.tooltip}
-                <div role="tooltip" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[200px] px-3 py-1.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-md border border-slate-700 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none shadow-xl z-20 text-center select-none">
-                  {method.tooltip}
-                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-slate-800"></div>
-                </div>
-              {/if}
+        {#if paymentSuccess}
+          <!-- Success state -->
+          <div class="text-center py-8">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
             </div>
-          {/each}
-        </div>
+            <h4 class="text-lg font-bold text-white mb-2">{$t.paymentModal.approved}</h4>
+            <p class="text-slate-400 text-sm mb-6">{$t.paymentModal.approvedDesc} {planName}.</p>
+            <button
+              onclick={onClose}
+              class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg transition-all"
+            >
+              {$t.paymentModal.close}
+            </button>
+          </div>
+        {:else if paymentStep === 'select'}
+          <!-- Step 1: Payment Method Selection -->
+          <h4 class="text-sm font-bold text-white mb-1">{$t.paymentModal.selectMethod}</h4>
+          <p class="text-xs text-slate-400 mb-4">{$t.paymentModal.selectMethodSubtitle}</p>
 
-        <button
-          onclick={handlePayment}
-          class="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] mb-4 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
-          aria-label="Pay {amount} US Dollars with {selectedMethod === 'mp' ? 'Mercado Pago' : selectedMethod === 'paypal' ? 'PayPal' : 'Credit Card'}"
-        >
-          {$t.paymentModal.cta}
-        </button>
+          <div class="space-y-3">
+            <!-- Mercado Pago -->
+            <button
+              onclick={() => paymentStep = 'mp-form'}
+              class="w-full flex items-center gap-4 p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-emerald-500/50 hover:bg-slate-800/50 transition-all group text-left"
+            >
+              <div class="w-12 h-12 rounded-lg bg-[#009ee3]/10 flex items-center justify-center shrink-0">
+                <svg class="w-8 h-6" viewBox="0 0 48 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="48" height="32" rx="4" fill="#009ee3"/>
+                  <path d="M18.5 8c-2.5 0-4.5 1.2-5.5 3.2-.8 1.6-.5 3.5.7 4.8 1.2 1.3 3 1.8 4.8 1.5l.5-.1c.3-.1.5-.2.8-.4l3-2c.5-.3 1-.5 1.5-.5h2.5c1 0 2-.5 2.5-1.3.5-.8.5-1.8 0-2.5C27.5 9 23 8 18.5 8z" fill="white" opacity="0.9"/>
+                  <path d="M22.5 14c-2.5 0-4.5 1.2-5.5 3.2-.8 1.6-.5 3.5.7 4.8 1.2 1.3 3 1.8 4.8 1.5l.5-.1c.3-.1.5-.2.8-.4l3-2c.5-.3 1-.5 1.5-.5h2.5c1 0 2-.5 2.5-1.3.5-.8.5-1.8 0-2.5C31.5 15 27 14 22.5 14z" fill="white" opacity="0.6"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <span class="block text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{$t.paymentModal.mercadoPago}</span>
+                <span class="block text-xs text-slate-500">{$t.paymentModal.mercadoPagoDesc}</span>
+              </div>
+              <svg class="w-5 h-5 text-slate-600 group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            </button>
 
-        <div class="flex items-center justify-center gap-2 text-[10px] text-slate-500">
+            <!-- PayPal -->
+            <button
+              onclick={() => paymentStep = 'paypal-soon'}
+              class="w-full flex items-center gap-4 p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-slate-600 transition-all group text-left"
+            >
+              <div class="w-12 h-12 rounded-lg bg-[#003087]/10 flex items-center justify-center shrink-0">
+                <svg class="w-8 h-6" viewBox="0 0 48 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="48" height="32" rx="4" fill="#003087"/>
+                  <path d="M16 10h5c2.5 0 4 1.5 3.5 4-.5 2.5-2.5 4-5 4h-1.5l-1 4h-3l2-12z" fill="#009cde"/>
+                  <path d="M19 10h5c2.5 0 4 1.5 3.5 4-.5 2.5-2.5 4-5 4h-1.5l-1 4h-3l2-12z" fill="white" opacity="0.8"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <span class="block text-sm font-bold text-white">{$t.paymentModal.paypal}</span>
+                <span class="block text-xs text-slate-500">{$t.paymentModal.paypalDesc}</span>
+              </div>
+              <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">{$t.paymentModal.comingSoon}</span>
+            </button>
+          </div>
+        {:else if paymentStep === 'paypal-soon'}
+          <!-- PayPal Coming Soon -->
+          <div class="text-center py-8">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
+              <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <h4 class="text-lg font-bold text-white mb-2">{$t.paymentModal.comingSoon}</h4>
+            <p class="text-slate-400 text-sm mb-6">{$t.paymentModal.comingSoonDesc}</p>
+            <button
+              onclick={() => paymentStep = 'select'}
+              class="px-6 py-3 border border-slate-700 text-white font-bold rounded-lg hover:border-emerald-500/50 transition-all"
+            >
+              {$t.paymentModal.backToMethods}
+            </button>
+          </div>
+        {:else if paymentStep === 'mp-form'}
+          {#if !MP_PUBLIC_KEY}
+            <!-- No public key configured -->
+            <div class="text-center py-8">
+              <p class="text-slate-400 text-sm mb-4">{$t.paymentModal.noKey}</p>
+              <a
+                href="https://wa.me/5411315536315"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-block px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg transition-all"
+              >
+                {$t.paymentModal.contactWhatsApp}
+              </a>
+            </div>
+          {:else}
+            <!-- Back button -->
+            <button
+              onclick={() => paymentStep = 'select'}
+              class="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors mb-4"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+              {$t.paymentModal.backToMethods}
+            </button>
+
+            <!-- Card form (MP Checkout API) -->
+            <div bind:this={cardFormContainerRef}>
+              <form id="mp-card-form" onsubmit={(e) => e.preventDefault()}>
+                <div class="space-y-4">
+                  <div>
+                    <label for="mp-card-number" class="block text-xs text-slate-400 mb-1.5">{$t.paymentModal.cardNumber}</label>
+                    <div id="mp-card-number" class="h-10 rounded-lg border border-slate-700 bg-slate-800/50 overflow-hidden"></div>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label for="mp-expiration-date" class="block text-xs text-slate-400 mb-1.5">{$t.paymentModal.expMonth}/{$t.paymentModal.expYear}</label>
+                      <div id="mp-expiration-date" class="h-10 rounded-lg border border-slate-700 bg-slate-800/50 overflow-hidden"></div>
+                    </div>
+                    <div>
+                      <label for="mp-security-code" class="block text-xs text-slate-400 mb-1.5">{$t.paymentModal.cvc}</label>
+                      <div id="mp-security-code" class="h-10 rounded-lg border border-slate-700 bg-slate-800/50 overflow-hidden"></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label for="mp-cardholder-name" class="block text-xs text-slate-400 mb-1.5">{$t.paymentModal.cardholderName}</label>
+                    <input id="mp-cardholder-name" type="text" class="w-full h-10 px-3 rounded-lg border border-slate-700 bg-slate-800/50 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors" />
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label for="mp-doc-type" class="block text-xs text-slate-400 mb-1.5">{$t.paymentModal.docType}</label>
+                      <select id="mp-doc-type" class="w-full h-10 px-3 rounded-lg border border-slate-700 bg-slate-800/50 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors"></select>
+                    </div>
+                    <div>
+                      <label for="mp-doc-number" class="block text-xs text-slate-400 mb-1.5">{$t.paymentModal.docNumber}</label>
+                      <input id="mp-doc-number" type="text" class="w-full h-10 px-3 rounded-lg border border-slate-700 bg-slate-800/50 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label for="mp-issuer" class="block text-xs text-slate-400 mb-1.5">Issuer</label>
+                    <select id="mp-issuer" class="w-full h-10 px-3 rounded-lg border border-slate-700 bg-slate-800/50 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors"></select>
+                  </div>
+
+                  <div>
+                    <label for="mp-installments" class="block text-xs text-slate-400 mb-1.5">{$t.paymentModal.installments}</label>
+                    <select id="mp-installments" class="w-full h-10 px-3 rounded-lg border border-slate-700 bg-slate-800/50 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors"></select>
+                  </div>
+                </div>
+
+                {#if paymentError}
+                  <div class="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                    {paymentError}
+                  </div>
+                {/if}
+
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  class="w-full mt-6 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
+                  aria-label="Pay {amount} US Dollars"
+                >
+                  {isProcessing ? $t.paymentModal.processing : $t.paymentModal.cta}
+                </button>
+              </form>
+            </div>
+
+            <p class="mt-4 text-[10px] text-slate-500 text-center">{$t.paymentModal.disclaimer}</p>
+          {/if}
+        {/if}
+
+        <div class="flex items-center justify-center gap-2 text-[10px] text-slate-500 mt-3">
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           {$t.paymentModal.secure}
         </div>

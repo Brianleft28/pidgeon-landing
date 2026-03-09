@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { t, openContactModal } from '../stores';
   import VeoHeroBackground from './VeoHeroBackground.svelte';
 
@@ -6,30 +7,48 @@
   let text = $state('');
   let isDeleting = $state(false);
 
-  const typingSpeed = 100;
-  const deletingSpeed = 50;
-  const pauseDuration = 2000;
+  const TYPING_SPEED = 100;
+  const DELETING_SPEED = 50;
+  const PAUSE_DURATION = 2000;
 
   $effect(() => {
     const rotatingWords = $t.heroRotatingWords as string[];
-    const currentWord = rotatingWords[wordIndex];
 
-    const handleTyping = () => {
-      const updatedText = isDeleting
-        ? currentWord.substring(0, text.length - 1)
-        : currentWord.substring(0, text.length + 1);
+    text = '';
+    wordIndex = 0;
+    isDeleting = false;
 
-      text = updatedText;
+    let timer: ReturnType<typeof setTimeout>;
 
-      if (!isDeleting && updatedText === currentWord) {
-        setTimeout(() => { isDeleting = true; }, pauseDuration);
-      } else if (isDeleting && updatedText === '') {
-        isDeleting = false;
-        wordIndex = (wordIndex + 1) % rotatingWords.length;
+    function tick() {
+      const idx = untrack(() => wordIndex);
+      const current = untrack(() => text);
+      const deleting = untrack(() => isDeleting);
+      const word = rotatingWords[idx];
+
+      if (!deleting) {
+        const next = word.substring(0, current.length + 1);
+        text = next;
+        if (next === word) {
+          isDeleting = true;
+          timer = setTimeout(tick, PAUSE_DURATION);
+        } else {
+          timer = setTimeout(tick, TYPING_SPEED);
+        }
+      } else {
+        const next = word.substring(0, current.length - 1);
+        text = next;
+        if (next === '') {
+          isDeleting = false;
+          wordIndex = (idx + 1) % rotatingWords.length;
+          timer = setTimeout(tick, TYPING_SPEED);
+        } else {
+          timer = setTimeout(tick, DELETING_SPEED);
+        }
       }
-    };
+    }
 
-    const timer = setTimeout(handleTyping, isDeleting ? deletingSpeed : typingSpeed);
+    timer = setTimeout(tick, TYPING_SPEED);
     return () => clearTimeout(timer);
   });
 
@@ -85,7 +104,7 @@
         <div class="relative w-full max-w-md aspect-square flex items-center justify-center">
           <div class="absolute inset-0 bg-emerald-500/20 blur-[100px] rounded-full pointer-events-none"></div>
           <img
-            src="public/assets/logo2.png"
+            src="/assets/logo2.png"
             alt="Hero Logo"
             class="relative z-10 w-full h-auto object-contain max-h-[400px] invert brightness-0 filter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
             onerror={handleImgError}

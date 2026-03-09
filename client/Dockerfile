@@ -1,11 +1,14 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
-COPY package*.json ./
-RUN npm ci
+ARG VITE_MP_PUBLIC_KEY
+ENV VITE_MP_PUBLIC_KEY=${VITE_MP_PUBLIC_KEY}
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 FROM nginx:stable-alpine
 COPY --from=builder /app/dist /usr/share/nginx/html

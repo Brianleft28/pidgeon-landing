@@ -7,19 +7,34 @@ services:
         - NODE_ENV=production
     ports:
       - "3000:3000"
-    env_file:
-      - ./backend/.env
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USERNAME=pidgeon
+      - DB_PASSWORD=pidgeon
+      - DB_DATABASE=pidgeon_db
+      - PORT=3000
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-change_this_secret}
+      - JWT_EXPIRES_IN=3600s
+      - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - TYPEORM_SYNC=false
+      - TYPEORM_MIGRATIONS_RUN=true
+    restart: unless-stopped
     networks:
       - pidgeon-net
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
 
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://backend:3000
+        - VITE_API_URL=http://localhost:3000
+        - VITE_MP_PUBLIC_KEY=${VITE_MP_PUBLIC_KEY:-}
     ports:
       - "80:80"
     depends_on:
@@ -36,7 +51,13 @@ services:
       - MYSQL_USER=pidgeon
       - MYSQL_PASSWORD=pidgeon
     ports:
-      - "3306:3306"
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pbrian5451"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
     volumes:
       - mysql-data:/var/lib/mysql
     networks:

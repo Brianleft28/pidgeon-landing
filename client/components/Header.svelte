@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, lang, openContactModal } from '../stores';
+  import { t, lang, openContactModal, openAuthModal, isLoggedIn, currentUser, logout } from '../stores';
   import Sidebar from './Sidebar.svelte';
 
   let isVisible = $state(false);
@@ -45,11 +45,11 @@
     <div class="flex items-center justify-between px-6 py-3 rounded-full bg-[#0a0a0a]/90 backdrop-blur-md border border-slate-800 shadow-2xl shadow-black/50">
       <!-- Logo -->
       <div class="flex items-center gap-3 cursor-pointer group" role="button" tabindex="0" onclick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} onkeydown={(e) => e.key === 'Enter' && window.scrollTo({ top: 0, behavior: 'smooth' })}>
-        <img src="/assets/logo.png" alt="Pidgeon Solutions" class="h-8 w-auto object-contain invert brightness-0 filter animate-subtle-pulse" />
+        <img src="/assets/logo.png" alt="Pidgeon Solutions" class="h-8 w-auto brightness-0 invert" />
       </div>
 
       <!-- Desktop Nav -->
-      <div class="hidden lg:flex items-center gap-8">
+      <div class="hidden md:flex items-center gap-8">
         <button onclick={() => scrollTo('about')} class="text-sm font-medium transition-colors {activeSection === 'about' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}">
           {$t.navAbout}
         </button>
@@ -66,16 +66,31 @@
 
       <!-- Actions -->
       <div class="flex items-center gap-4">
-        <div class="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-500 bg-slate-900/50 rounded-lg px-2 py-1 border border-slate-800/50">
+        <div class="hidden md:flex items-center gap-2 text-xs font-semibold text-slate-500 bg-slate-900/50 rounded-lg px-2 py-1 border border-slate-800/50">
           <button onclick={() => lang.set('EN')} class="px-1.5 py-0.5 rounded transition-colors {$lang === 'EN' ? 'text-white bg-slate-800' : 'hover:text-slate-300'}">EN</button>
           <button onclick={() => lang.set('ES')} class="px-1.5 py-0.5 rounded transition-colors {$lang === 'ES' ? 'text-white bg-slate-800' : 'hover:text-slate-300'}">ES</button>
         </div>
 
-        <button onclick={() => openContactModal()} class="hidden sm:block px-5 py-2 rounded-full bg-emerald-500 text-slate-950 text-xs font-bold hover:bg-emerald-400 hover:scale-105 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+        <div class="hidden md:flex items-center">
+          {#if $isLoggedIn}
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-400 truncate max-w-[120px]">{$currentUser?.email}</span>
+              <button onclick={() => logout()} class="text-xs text-slate-500 hover:text-red-400 transition-colors">
+                {$t.auth.logoutButton}
+              </button>
+            </div>
+          {:else}
+            <button onclick={() => openAuthModal()} class="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+              {$t.auth.loginCta}
+            </button>
+          {/if}
+        </div>
+
+        <button onclick={() => openContactModal()} class="hidden md:block px-5 py-2 rounded-full bg-emerald-500 text-slate-950 text-xs font-bold hover:bg-emerald-400 hover:scale-105 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]">
           {$t.btnContact}
         </button>
 
-        <button onclick={() => isSidebarOpen = true} class="p-2 text-slate-400 hover:text-white transition-colors border-l border-slate-800 pl-4 ml-2" aria-label="Open Menu">
+        <button onclick={() => isSidebarOpen = true} class="md:hidden p-2 text-slate-400 hover:text-white transition-colors border-l border-slate-800 pl-4 ml-2" aria-label="Open Menu">
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
           </svg>

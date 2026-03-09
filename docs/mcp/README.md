@@ -60,7 +60,8 @@ Cuando un cliente contrata un sistema Custom, MCP permite:
 - [Especificación MCP](https://modelcontextprotocol.io/) — Documentación oficial
 - [MCP Servers](https://github.com/modelcontextprotocol/servers) — Servers oficiales de Anthropic
 - [Guía de Herramientas NPM](herramientas-npm.md) — Cómo usar herramientas MCP vía npx
+- [MCP Server de Mercado Pago](mercado-pago-mcp.md) — Integración de Mercado Pago como herramienta MCP
 
 ---
 
-_Ver también:_ [Herramientas MCP via NPM](herramientas-npm.md) · [Agente Claude](../claude/README.md) · [Doc as Code](../filosofia/doc-as-code.md)
+_Ver también:_ [Herramientas MCP via NPM](herramientas-npm.md) · [MCP Server de Mercado Pago](mercado-pago-mcp.md) · [Agente Claude](../claude/README.md) · [Doc as Code](../filosofia/doc-as-code.md)

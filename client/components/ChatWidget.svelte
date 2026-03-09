@@ -1,5 +1,47 @@
 <script lang="ts">
-  import { t } from '../stores';
+  import { t, authToken, logout } from '../stores';
+  import { get } from 'svelte/store';
+  import { Marked } from 'marked';
+  import hljs from 'highlight.js/lib/core';
+  import javascript from 'highlight.js/lib/languages/javascript';
+  import typescript from 'highlight.js/lib/languages/typescript';
+  import python from 'highlight.js/lib/languages/python';
+  import bash from 'highlight.js/lib/languages/bash';
+  import json from 'highlight.js/lib/languages/json';
+  import sql from 'highlight.js/lib/languages/sql';
+  import DOMPurify from 'dompurify';
+
+  hljs.registerLanguage('javascript', javascript);
+  hljs.registerLanguage('js', javascript);
+  hljs.registerLanguage('typescript', typescript);
+  hljs.registerLanguage('ts', typescript);
+  hljs.registerLanguage('python', python);
+  hljs.registerLanguage('bash', bash);
+  hljs.registerLanguage('sh', bash);
+  hljs.registerLanguage('json', json);
+  hljs.registerLanguage('sql', sql);
+
+  const marked = new Marked({
+    renderer: {
+      code({ text, lang }: { text: string; lang?: string }) {
+        const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+        const highlighted = language !== 'plaintext'
+          ? hljs.highlight(text, { language }).value
+          : text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<pre class="rounded-lg bg-slate-900 p-3 my-2 overflow-x-auto border border-slate-700 text-xs"><code class="hljs language-${language}">${highlighted}</code></pre>`;
+      },
+    },
+  });
+
+  function parseMarkdown(content: string): string {
+    if (!content) return '';
+    try {
+      const html = marked.parse(content, { async: false }) as string;
+      return DOMPurify.sanitize(html);
+    } catch {
+      return content;
+    }
+  }
 
   type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -13,6 +55,7 @@
   let inputValue = $state('');
   let isLoading = $state(false);
   let messagesEndEl = $state<HTMLDivElement>();
+  let currentConversationId = $state<string | null>(null);
 
   // Load history on mount
   $effect(() => {
@@ -50,32 +93,151 @@
     }
   });
 
+  async function readStream(res: globalThis.Response, assistantIndex: number) {
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(payload);
+          if (parsed.text) {
+            const updated = [...messages];
+            updated[assistantIndex] = {
+              ...updated[assistantIndex],
+              content: updated[assistantIndex].content + parsed.text,
+            };
+            messages = updated;
+          }
+        } catch { /* skip malformed chunks */ }
+      }
+    }
+  }
+
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
+
+    const token = get(authToken);
+    const loggedIn = !!token;
 
     const userMsg = inputValue;
     inputValue = '';
     messages = [...messages, { role: 'user', content: userMsg }];
     isLoading = true;
 
+    const assistantIndex = messages.length;
+    messages = [...messages, { role: 'assistant', content: '' }];
+
     try {
+      if (loggedIn) {
+        // Create conversation if needed
+        if (!currentConversationId) {
+          const convRes = await fetch(`${API_URL}/chat/conversations`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({}),
+          });
+
+          if (convRes.status === 401) {
+            logout();
+            // Fall through to anonymous flow below
+          } else {
+            const convData = await convRes.json();
+            currentConversationId = convData.id;
+          }
+        }
+
+        if (currentConversationId) {
+          const res = await fetch(`${API_URL}/chat/conversations/${currentConversationId}/message/stream`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ message: userMsg }),
+          });
+
+          if (res.status === 401) {
+            logout();
+            currentConversationId = null;
+            throw new Error('Token expired');
+          }
+
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          await readStream(res, assistantIndex);
+
+          if (!messages[assistantIndex].content) {
+            const updated = [...messages];
+            updated[assistantIndex] = { role: 'assistant', content: $t.chat.error };
+            messages = updated;
+          }
+
+          isLoading = false;
+          return;
+        }
+      }
+
+      // Anonymous flow (or fallback if auth failed)
       const history = messages
         .filter(m => m.content && m.content !== $t.chat.initial)
         .slice(0, -1);
 
-      const res = await fetch(`${API_URL}/chat/message`, {
+      const res = await fetch(`${API_URL}/chat/message/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, history }),
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      messages = [...messages, { role: 'assistant', content: data.reply }];
+      await readStream(res, assistantIndex);
+
+      if (!messages[assistantIndex].content) {
+        const updated = [...messages];
+        updated[assistantIndex] = { role: 'assistant', content: $t.chat.error };
+        messages = updated;
+      }
     } catch (err) {
       console.error('Chat error:', err);
-      messages = [...messages, { role: 'assistant', content: $t.chat.error }];
+      try {
+        const history = messages
+          .filter(m => m.content && m.content !== $t.chat.initial)
+          .slice(0, -1);
+
+        const res = await fetch(`${API_URL}/chat/message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userMsg, history }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const updated = [...messages];
+          updated[assistantIndex] = { role: 'assistant', content: data.reply };
+          messages = updated;
+        } else {
+          throw new Error('Fallback failed');
+        }
+      } catch {
+        const updated = [...messages];
+        updated[assistantIndex] = { role: 'assistant', content: $t.chat.error };
+        messages = updated;
+      }
     } finally {
       isLoading = false;
     }
@@ -84,20 +246,21 @@
   function handleClearChat() {
     messages = [{ role: 'assistant', content: $t.chat.initial }];
     localStorage.removeItem(LOCAL_STORAGE_KEY);
+    currentConversationId = null;
   }
 </script>
 
-<div class="fixed bottom-6 right-24 z-50 flex flex-col items-end pointer-events-none">
+<div class="fixed z-50 flex flex-col items-end pointer-events-none {isOpen ? 'inset-0 sm:inset-auto sm:bottom-6 sm:right-24' : 'bottom-6 right-24'}">
   <!-- Chat Panel -->
   {#if isOpen}
     <div
-      class="pointer-events-auto w-80 sm:w-96 h-[500px] mb-4 rounded-2xl border border-slate-700/50 bg-slate-950/95 backdrop-blur-xl shadow-2xl shadow-emerald-500/5 flex flex-col overflow-hidden animate-slideUp"
+      class="pointer-events-auto w-full h-full sm:w-[450px] sm:h-[600px] sm:mb-4 rounded-none sm:rounded-2xl border-0 sm:border sm:border-slate-700/50 bg-slate-950/95 backdrop-blur-xl shadow-2xl shadow-emerald-500/5 flex flex-col overflow-hidden animate-slideUp"
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-slate-900 to-slate-900/80 border-b border-slate-800">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center">
-            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center p-1.5">
+            <img src="/assets/logo2.png" alt="Pidgeon" class="w-full h-full object-contain brightness-0 invert" />
           </div>
           <div>
             <p class="text-sm font-semibold text-white">Pidgeon Assistant</p>
@@ -121,18 +284,30 @@
       <div class="flex-1 overflow-y-auto p-4 space-y-3">
         {#each messages as msg, idx}
           <div class="flex {msg.role === 'user' ? 'justify-end' : 'justify-start'}">
-            <div class="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed
+            <div class="max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed
               {msg.role === 'user'
                 ? 'bg-emerald-600 text-white rounded-br-md'
                 : 'bg-slate-800/80 text-slate-200 rounded-bl-md border border-slate-700/50'}"
             >
-              {msg.content}
-              {#if isLoading && msg.role === 'assistant' && idx === messages.length - 1 && !msg.content}
-                <span class="flex gap-1 py-1">
-                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style="animation-delay: 0ms"></span>
-                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style="animation-delay: 150ms"></span>
-                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style="animation-delay: 300ms"></span>
-                </span>
+              {#if msg.role === 'assistant'}
+                {#if msg.content}
+                  <div class="prose prose-sm prose-invert prose-emerald max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_a]:text-emerald-400">
+                    {@html parseMarkdown(msg.content)}
+                  </div>
+                {/if}
+                {#if isLoading && idx === messages.length - 1}
+                  {#if !msg.content}
+                    <span class="flex gap-1 py-1">
+                      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style="animation-delay: 0ms"></span>
+                      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style="animation-delay: 150ms"></span>
+                      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style="animation-delay: 300ms"></span>
+                    </span>
+                  {:else}
+                    <span class="inline-block w-1.5 h-3 bg-emerald-500 animate-pulse ml-0.5 align-middle"></span>
+                  {/if}
+                {/if}
+              {:else}
+                {msg.content}
               {/if}
             </div>
           </div>
@@ -175,7 +350,7 @@
     {#if isOpen}
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
     {:else}
-      <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+      <img src="/assets/logo2.png" alt="Pidgeon" class="w-8 h-8 object-contain brightness-0 invert" />
     {/if}
     {#if !isOpen}
       <span class="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full animate-ping"></span>

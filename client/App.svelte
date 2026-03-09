@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { lang, t, isContactModalOpen, isPaymentModalOpen, contactPlan, paymentDetails } from './stores';
+  import { lang, t, isContactModalOpen, isPaymentModalOpen, isAuthModalOpen, contactPlan, paymentDetails, initAuth } from './stores';
   import Header from './components/Header.svelte';
   import Hero from './components/Hero.svelte';
   import AboutSection from './components/AboutSection.svelte';
@@ -11,8 +11,11 @@
   import DynamicBackground from './components/DynamicBackground.svelte';
   import ContactModal from './components/ContactModal.svelte';
   import PaymentModal from './components/PaymentModal.svelte';
+  import AuthModal from './components/AuthModal.svelte';
   import FloatingActions from './components/FloatingActions.svelte';
   import ChatWidget from './components/ChatWidget.svelte';
+
+  initAuth();
 </script>
 
 <div class="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30 selection:text-emerald-100 scroll-smooth">
@@ -47,6 +50,11 @@
     onClose={() => isPaymentModalOpen.set(false)}
     planName={$paymentDetails.name}
     amount={$paymentDetails.amount}
+  />
+
+  <AuthModal
+    isOpen={$isAuthModalOpen}
+    onClose={() => isAuthModalOpen.set(false)}
   />
 
   <footer class="relative z-10 py-8 border-t border-slate-900 bg-slate-950/80 backdrop-blur-md">

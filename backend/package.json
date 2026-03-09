@@ -6,6 +6,7 @@
     "build": "nest build",
     "start:prod": "node dist/main",
     "start": "nest start",
+    "start:dev": "nest start --watch",
     "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -d src/db/data-source.ts src/db/migrations/Generate",
     "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/db/data-source.ts"
   },
@@ -33,6 +34,7 @@
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@types/bcryptjs": "^2.4.2",
+    "@types/express": "^5.0.6",
     "@types/passport-jwt": "^3.0.8",
     "svelte-typewriter": "^3.2.3",
     "ts-node": "^10.9.1",

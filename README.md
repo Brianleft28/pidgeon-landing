@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="client/public/assets/logo.png" alt="Pidgeon Solutions" width="280" />
+  <img src="client/public/assets/logo2.png" alt="Pidgeon Solutions" width="280" />
 
   <h1>Pidgeon Solutions</h1>
 
-  <p><strong>Estudio de software boutique · Sitio web + API backend</strong></p>
+  <p><strong>Estudio de software · Sitio web + API backend</strong></p>
 
   ![NestJS](https://img.shields.io/badge/NestJS-10-E0234E?logo=nestjs&logoColor=white)
   ![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)
@@ -36,7 +36,7 @@
 
 ## 🧠 Sobre el Proyecto
 
-**Pidgeon Solutions** es un estudio de software boutique que ofrece soluciones digitales completas: sitios web, automatización con IA, integración de pagos y soporte inteligente para clientes.
+**Pidgeon Solutions** es un estudio de software que ofrece soluciones digitales completas: sitios web, automatización con IA, integración de pagos y soporte inteligente para clientes.
 
 Este monorepo contiene:
 

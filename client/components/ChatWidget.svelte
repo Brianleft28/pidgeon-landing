@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, authToken, logout } from '../stores';
+  import { t } from '../stores';
   import { get } from 'svelte/store';
   import { Marked } from 'marked';
   import hljs from 'highlight.js/lib/core';
@@ -55,7 +55,7 @@
   let inputValue = $state('');
   let isLoading = $state(false);
   let messagesEndEl = $state<HTMLDivElement>();
-  let currentConversationId = $state<string | null>(null);
+  
 
   // Load history on mount
   $effect(() => {
@@ -130,9 +130,6 @@
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
 
-    const token = get(authToken);
-    const loggedIn = !!token;
-
     const userMsg = inputValue;
     inputValue = '';
     messages = [...messages, { role: 'user', content: userMsg }];
@@ -142,58 +139,6 @@
     messages = [...messages, { role: 'assistant', content: '' }];
 
     try {
-      if (loggedIn) {
-        // Create conversation if needed
-        if (!currentConversationId) {
-          const convRes = await fetch(`${API_URL}/chat/conversations`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({}),
-          });
-
-          if (convRes.status === 401) {
-            logout();
-            // Fall through to anonymous flow below
-          } else {
-            const convData = await convRes.json();
-            currentConversationId = convData.id;
-          }
-        }
-
-        if (currentConversationId) {
-          const res = await fetch(`${API_URL}/chat/conversations/${currentConversationId}/message/stream`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({ message: userMsg }),
-          });
-
-          if (res.status === 401) {
-            logout();
-            currentConversationId = null;
-            throw new Error('Token expired');
-          }
-
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          await readStream(res, assistantIndex);
-
-          if (!messages[assistantIndex].content) {
-            const updated = [...messages];
-            updated[assistantIndex] = { role: 'assistant', content: $t.chat.error };
-            messages = updated;
-          }
-
-          isLoading = false;
-          return;
-        }
-      }
-
-      // Anonymous flow (or fallback if auth failed)
       const history = messages
         .filter(m => m.content && m.content !== $t.chat.initial)
         .slice(0, -1);
@@ -246,7 +191,7 @@
   function handleClearChat() {
     messages = [{ role: 'assistant', content: $t.chat.initial }];
     localStorage.removeItem(LOCAL_STORAGE_KEY);
-    currentConversationId = null;
+    
   }
 </script>
 

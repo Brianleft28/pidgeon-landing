@@ -6,67 +6,34 @@ services:
       args:
         - NODE_ENV=production
     ports:
-      - "3000:3000"
+      - "4001:3000"
     environment:
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USERNAME=pidgeon
-      - DB_PASSWORD=pidgeon
-      - DB_DATABASE=pidgeon_db
       - PORT=3000
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-change_this_secret}
-      - JWT_EXPIRES_IN=3600s
-      - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - TYPEORM_SYNC=false
-      - TYPEORM_MIGRATIONS_RUN=true
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_TO=${SMTP_TO:-}
     restart: unless-stopped
     networks:
       - pidgeon-net
-    depends_on:
-      mysql:
-        condition: service_healthy
 
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://localhost:3000
-        - VITE_MP_PUBLIC_KEY=${VITE_MP_PUBLIC_KEY:-}
+        - VITE_API_URL=https://pidgeonsolutions.tech/api
     ports:
-      - "80:80"
+      - "3002:80"
     depends_on:
       - backend
-    networks:
-      - pidgeon-net
-
-  mysql:
-    image: mysql:8.0
-    restart: unless-stopped
-    environment:
-      - MYSQL_ROOT_PASSWORD=brian5451
-      - MYSQL_DATABASE=pidgeon_db
-      - MYSQL_USER=pidgeon
-      - MYSQL_PASSWORD=pidgeon
-    ports:
-      - "3307:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pbrian5451"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 30s
-    volumes:
-      - mysql-data:/var/lib/mysql
     networks:
       - pidgeon-net
 
 networks:
   pidgeon-net:
     driver: bridge
-
-volumes:
-  mysql-data:
-    driver: local

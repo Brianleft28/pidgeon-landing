@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, openPaymentModal, openContactModal } from '../stores';
+  import { t, openContactModal } from '../stores';
   import PricingBackground from './PricingBackground.svelte';
   import IconStarter from './icons/IconStarter.svelte';
   import IconBusiness from './icons/IconBusiness.svelte';
@@ -121,7 +121,7 @@
           <!-- CTA -->
           <div class="relative group/tooltip w-full mb-8">
             <button
-              onclick={() => openPaymentModal(plan.title, currentPrice)}
+              onclick={() => openContactModal(plan.title)}
               aria-label="{$t.pricing.choosePlan} {plan.title}"
               class="w-full py-3 rounded-xl text-sm font-bold uppercase tracking-widest transition-all
                 {plan.recommended

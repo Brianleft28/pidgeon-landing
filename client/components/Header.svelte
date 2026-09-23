@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, lang, openContactModal, openAuthModal, isLoggedIn, currentUser, logout } from '../stores';
+  import { t, lang, openContactModal } from '../stores';
   import Sidebar from './Sidebar.svelte';
 
   let isVisible = $state(false);
@@ -69,21 +69,6 @@
         <div class="hidden md:flex items-center gap-2 text-xs font-semibold text-slate-500 bg-slate-900/50 rounded-lg px-2 py-1 border border-slate-800/50">
           <button onclick={() => lang.set('EN')} class="px-1.5 py-0.5 rounded transition-colors {$lang === 'EN' ? 'text-white bg-slate-800' : 'hover:text-slate-300'}">EN</button>
           <button onclick={() => lang.set('ES')} class="px-1.5 py-0.5 rounded transition-colors {$lang === 'ES' ? 'text-white bg-slate-800' : 'hover:text-slate-300'}">ES</button>
-        </div>
-
-        <div class="hidden md:flex items-center">
-          {#if $isLoggedIn}
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-slate-400 truncate max-w-[120px]">{$currentUser?.email}</span>
-              <button onclick={() => logout()} class="text-xs text-slate-500 hover:text-red-400 transition-colors">
-                {$t.auth.logoutButton}
-              </button>
-            </div>
-          {:else}
-            <button onclick={() => openAuthModal()} class="text-sm font-medium text-slate-400 hover:text-white transition-colors">
-              {$t.auth.loginCta}
-            </button>
-          {/if}
         </div>
 
         <button onclick={() => openContactModal()} class="hidden md:block px-5 py-2 rounded-full bg-emerald-500 text-slate-950 text-xs font-bold hover:bg-emerald-400 hover:scale-105 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]">

@@ -25,10 +25,11 @@
 
   const navItems = [
     { id: 'about', label: () => $t.navAbout, num: '01' },
-    { id: 'services', label: () => $t.navServices, num: '02' },
-    { id: 'rdd', label: () => $t.navWork, num: '03' },
-    { id: 'team', label: () => $t.navTeam, num: '04' },
-    { id: 'faq', label: () => 'FAQ', num: '05' },
+    { id: 'rdd', label: () => $t.navWork, num: '02' },
+    { id: 'chatbots', label: () => $t.navChatbots, num: '03' },
+    { id: 'services', label: () => $t.navServices, num: '04' },
+    { id: 'team', label: () => $t.navTeam, num: '05' },
+    { id: 'faq', label: () => 'FAQ', num: '06' },
   ];
 </script>
 

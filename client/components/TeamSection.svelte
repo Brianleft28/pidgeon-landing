@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '../stores';
-  import VeoTeamBackground from './VeoTeamBackground.svelte';
+  import TeamBackground from './TeamBackground.svelte';
 
   interface TeamMember {
     name: string;
@@ -18,7 +18,7 @@
 </script>
 
 <section id="team" class="relative py-24 bg-slate-950 overflow-hidden border-t border-slate-900">
-  <VeoTeamBackground />
+  <TeamBackground />
   <div class="absolute inset-0 bg-gradient-to-b from-slate-950 via-transparent to-slate-950 pointer-events-none"></div>
 
   <div class="container mx-auto px-6 md:px-12 relative z-10">

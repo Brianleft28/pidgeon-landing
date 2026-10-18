@@ -15,7 +15,7 @@
   });
 
   $effect(() => {
-    const sections = ['about', 'services', 'rdd', 'team', 'faq', 'contact'];
+    const sections = ['about', 'rdd', 'chatbots', 'services', 'team', 'faq', 'contact'];
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -53,11 +53,14 @@
         <button onclick={() => scrollTo('about')} class="text-sm font-medium transition-colors {activeSection === 'about' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}">
           {$t.navAbout}
         </button>
-        <button onclick={() => scrollTo('services')} class="text-sm font-medium transition-colors {activeSection === 'services' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}">
-          {$t.navServices}
-        </button>
         <button onclick={() => scrollTo('rdd')} class="text-sm font-medium transition-colors {activeSection === 'rdd' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}">
           {$t.navWork}
+        </button>
+        <button onclick={() => scrollTo('chatbots')} class="text-sm font-medium transition-colors {activeSection === 'chatbots' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}">
+          {$t.navChatbots}
+        </button>
+        <button onclick={() => scrollTo('services')} class="text-sm font-medium transition-colors {activeSection === 'services' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}">
+          {$t.navServices}
         </button>
         <button onclick={() => scrollTo('team')} class="text-sm font-medium transition-colors {activeSection === 'team' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}">
           {$t.navTeam}

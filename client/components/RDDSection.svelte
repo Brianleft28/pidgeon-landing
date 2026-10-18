@@ -1,10 +1,9 @@
 <script lang="ts">
   import { t } from '../stores';
-  import VeoBackground from './VeoBackground.svelte';
+  import StreamsBackground from './StreamsBackground.svelte';
   import IconBrain from './icons/IconBrain.svelte';
   import IconConnect from './icons/IconConnect.svelte';
   import IconAuto from './icons/IconAuto.svelte';
-  import IconVideo from './icons/IconVideo.svelte';
 
   type DashboardTab = 'automation' | 'crm' | 'ai';
 
@@ -27,13 +26,17 @@
       "Actualizando base de datos de clientes..."
     ],
     ai: [
-      "Inicializando Gemini 3 Pro Context...",
-      "Generando video marketing con Veo...",
-      "Optimizando assets con Nano...",
-      "Generando reporte de estrategia...",
-      "Respuesta optimizada generada en 0.4s"
+      "Inicializando Agente Conversacional Gemini...",
+      "Chatbot WhatsApp: consulta recibida de cliente",
+      "Consultando stock y agenda en vivo vía MCP...",
+      "Transmitiendo respuesta por chunks en 0.4s ✓",
+      "Turno y lead sincronizados con CRM ✓"
     ]
   };
+
+  function scrollToChatbots() {
+    document.getElementById('chatbots')?.scrollIntoView({ behavior: 'smooth' });
+  }
 
   $effect(() => {
     const tab = activeTab;
@@ -57,7 +60,7 @@
 
 <section id="rdd" class="min-h-[100dvh] bg-slate-950 relative overflow-hidden border-t border-slate-900 py-24">
   <div class="absolute inset-0 bg-slate-950">
-    <VeoBackground />
+    <StreamsBackground />
     <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_#020617_90%)]"></div>
   </div>
 
@@ -107,11 +110,11 @@
             <div class="flex-1 p-6 font-mono text-xs md:text-sm overflow-y-auto">
               <div class="mb-4 text-slate-500">
                 // Iniciando secuencia de monitoreo...<br/>
-                // Conectado a Gemini 3 Pro Preview<br/>
+                // Conectado a Gemini AI + MCP<br/>
                 // Estado: <span class="text-emerald-500">ONLINE</span>
               </div>
               <div class="space-y-3">
-                {#each logs as log, i}
+                {#each logs as log}
                   <div class="animate-slideRight border-l-2 border-transparent pl-2 hover:border-slate-700 transition-colors">
                     <span class="text-slate-600 mr-3">{log.substring(0, 10)}</span>
                     <span class="{log.includes('✓') ? 'text-emerald-400' : log.includes('Alerta') ? 'text-yellow-400' : 'text-cyan-300'}">
@@ -186,17 +189,29 @@
             </div>
           </div>
 
-          <!-- Veo -->
+          <!-- AI Chatbots Highlight -->
           <div class="mt-8 pt-8 border-t border-slate-800/50">
-            <div class="flex items-center gap-4 mb-3">
-              <div class="w-8 h-8">
-                <IconVideo class="w-full h-full" />
+            <div class="flex items-center justify-between gap-4 mb-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                </div>
+                <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded">
+                  {$t.rddChatbotHighlight.badge}
+                </span>
               </div>
-              <span class="text-xs font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded">Nuevo</span>
+              <button
+                onclick={scrollToChatbots}
+                class="text-xs font-mono text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+              >
+                {$t.rddChatbotHighlight.cta}
+              </button>
             </div>
-            <h4 class="text-white font-bold text-lg">Generación de Video (Veo)</h4>
-            <p class="text-xs text-slate-500 mt-1">
-              Creamos assets visuales dinámicos para tu marca utilizando el modelo Veo. Desde fondos animados hasta contenido para redes sociales.
+            <h4 class="text-white font-bold text-lg">{$t.rddChatbotHighlight.title}</h4>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              {$t.rddChatbotHighlight.desc}
             </p>
           </div>
         </div>

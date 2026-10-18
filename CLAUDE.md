@@ -1,42 +1,42 @@
 # CLAUDE.md — Pidgeon Solutions
 
-> Este archivo es leído automáticamente por Claude Code CLI al ejecutar `claude` en la raíz del proyecto.
+> Este archivo es leído automáticamente por asistentes de código al trabajar en la raíz del proyecto.
 
-## Proyecto
+## Proyecto e Identidad
 
-**Pidgeon Solutions** es un estudio de software boutique especializado en GovTech, aplicaciones enterprise e inteligencia artificial. Este repositorio contiene el sitio web principal y la API backend.
+**Pidgeon Solutions** (`pidgeonsolutions.tech`) es un emprendimiento tecnológico (estudio de software especializado en Chatbots con IA, GovTech, aplicaciones enterprise y automatización) fundado por **Brian Benegas y sus socios** (Gastón Alejandro).
+
+- **Diferenciación estricta:** Este repositorio **NO** es el portfolio personal de Brian Benegas (`/home/brianleft/brianleft-portfolio` · `brianleft.com`).
+- **Alcance simplificado:** Funciona exclusivamente como landing page informativa con asistente conversacional IA y formulario de contacto. **Prohibido** incluir inicio de sesión (Auth/Login), base de datos de usuarios, pasarelas de pago online (Mercado Pago/Stripe) o generadores de video Veo.
 
 ## Stack Técnico
 
-| Capa             | Tecnología                       |
-| ---------------- | -------------------------------- |
-| Backend          | NestJS 10 + TypeScript + TypeORM |
-| Frontend         | Svelte 5 + Vite 6 + Tailwind CSS |
-| Base de Datos    | MySQL 8.0                        |
-| Auth             | JWT + Passport + bcryptjs        |
-| Pagos            | Mercado Pago SDK 2.12            |
-| IA (Bot Cliente) | Google Gemini via backend proxy  |
-| Infraestructura  | Docker Compose (3 servicios)     |
+| Capa             | Tecnología                                        |
+| ---------------- | ------------------------------------------------- |
+| Backend          | NestJS 10 + TypeScript (Chat + Contact + Throttle)|
+| Frontend         | Svelte 5 (Runes) + Vite 6 + Tailwind CSS v4       |
+| Rate Limiting    | `@nestjs/throttler` + Redis 7 propio (`pidgeon-net`)|
+| IA (Bot Cliente) | Google Gemini (`@google/genai`) con cadena fallback|
+| Infraestructura  | Docker Compose (`backend`, `client`, `redis`)     |
 
 ## Estructura del Proyecto
 
 ```
-pidgeon/
+pidgeon-landing/
 ├── backend/src/
-│   ├── main.ts              # Bootstrap NestJS, puerto 3000
-│   ├── app.module.ts         # Root module: Auth + MercadoPago + Chat
-│   ├── auth/                 # JWT auth: login, register
-│   ├── db/entities/          # TypeORM entities (User: UUID, email, roles)
-│   ├── mercado-pago/         # Pagos con MP SDK
-│   └── chat/                 # Bot Gemini (backend proxy, API key segura)
+│   ├── main.ts              # Bootstrap NestJS, puerto 3000, trust proxy
+│   ├── app.module.ts        # Root module: AppThrottlerModule + Chat + Contact
+│   ├── chat/                # Bot Gemini con streaming SSE y fallback de modelos
+│   ├── contact/             # Envío de formulario de contacto vía SMTP
+│   └── throttler/           # Rate limiting por IP sobre Redis propio
 ├── client/
-│   ├── App.svelte            # Root component (layout de secciones)
-│   ├── stores.ts             # Estado global: lang, t, modals
-│   ├── i18n.ts               # Traducciones ES/EN (200+ keys)
-│   ├── types.ts              # ServiceCardProps, CaseStudyProps
-│   └── components/           # Hero, ServicesGrid, ChatWidget, etc.
-├── docs/                     # Documentación técnica (Doc as Code)
-└── docker-compose.yml        # 3 servicios: backend:3000, client:80, mysql:3306
+│   ├── App.svelte           # Root component (layout de secciones)
+│   ├── stores.ts            # Estado global: lang, t, ContactModal
+│   ├── i18n.ts              # Traducciones ES/EN
+│   ├── types.ts             # Tipos de UI
+│   └── components/          # Hero, RDDSection, ChatbotShowcase, ServicesGrid, ChatWidget, etc.
+├── docs/                    # Documentación técnica (Doc as Code)
+└── docker-compose.yml       # 3 servicios: backend:4001->3000, client:3002->80, redis:6379 (interno)
 ```
 
 ## Convenciones de Código
@@ -44,64 +44,19 @@ pidgeon/
 - **Idioma del código:** Inglés (variables, funciones, clases, commits)
 - **Idioma de la documentación:** Español
 - **Idioma de la UI:** Bilingüe ES/EN via `i18n.ts` — nunca hardcodear texto
-- **Backend:** Feature-based modules (un directorio por dominio bajo `src/`)
 - **Frontend:** Svelte 5 runes (`$state`, `$derived`, `$effect`) — no usar API legacy
-- **Estilos:** Tailwind utilities inline, no archivos CSS separados
-- **DTOs:** Clases simples en `dto/` para validación de input
-- **TypeScript strict** en ambos proyectos
-
-## Comandos
-
-```bash
-# Levantar todo con Docker
-docker-compose up -d
-
-# Backend (desarrollo local)
-cd backend && pnpm install && pnpm run start:dev
-
-# Frontend (desarrollo local)
-cd client && pnpm install && pnpm dev
-
-# Build de producción
-docker-compose up -d --build
-
-# Migraciones
-cd backend && pnpm run migration:run
-```
+- **Streaming por chunks:** Tanto `ChatWidget.svelte` como `ChatbotShowcase.svelte` emiten los mensajes del bot por chunks fluidos (2–4 caracteres cada 15ms)
+- **Estilos:** Tailwind utilities inline consistentes con la paleta oscura `slate-950` + `emerald`/`cyan`/`purple`
 
 ## Variables de Entorno Clave
 
-- `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` — MySQL
-- `JWT_SECRET` — Secret para firmar tokens
-- `MP_ACCESS_TOKEN` — Mercado Pago
 - `GEMINI_API_KEY` — Google Gemini (solo en backend)
-- `TYPEORM_SYNC` — `true` solo en dev
-
-## Reglas Importantes
-
-1. **La API key de Gemini NUNCA va al frontend** — siempre via backend proxy
-2. **TYPEORM_SYNC=false en producción** — usar migraciones
-3. **Todo texto de UI va en `i18n.ts`** con keys para ES y EN
-4. **Documentación se actualiza junto al código** (Doc as Code)
-5. **Passwords hasheados con bcrypt, salt rounds = 10**
-
-## Documentación Detallada
-
-Para contexto profundo sobre cualquier aspecto del proyecto, consultar `docs/`:
-
-- Arquitectura: `docs/arquitectura/README.md`
-- Backend: `docs/arquitectura/backend.md`
-- Frontend: `docs/arquitectura/frontend.md`
-- Infraestructura: `docs/arquitectura/infraestructura.md`
-- API Auth: `docs/api/autenticacion.md`
-- API Pagos: `docs/api/pagos.md`
-- API Chat: `docs/api/chat.md`
-- Guías: `docs/guias/`
-- MCP: `docs/mcp/`
-- Roadmap: `docs/roadmap.md`
+- `GEMINI_MODEL` — Modelo primario (ej. `gemini-2.5-flash-lite`)
+- `GEMINI_MODEL_FALLBACK` — Lista de modelos fallback separados por coma
+- `REDIS_HOST`, `REDIS_PORT` — Instancia Redis propia (`redis:6379`)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_TO` — Contacto por email
 
 ## Equipo
 
 - **Brian Benegas** — Tech Lead & Infrastructure
-- **Thomas Pineda** — Creative Director
 - **Gastón Alejandro** — Operations & Strategy

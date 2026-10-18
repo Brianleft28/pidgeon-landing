@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { t, openContactModal } from '../stores';
-  import VeoHeroBackground from './VeoHeroBackground.svelte';
+  import HeroGlowBackground from './HeroGlowBackground.svelte';
 
   let wordIndex = $state(0);
   let text = $state('');
@@ -60,7 +60,7 @@
 </script>
 
 <section class="relative min-h-screen flex flex-col justify-center overflow-hidden bg-slate-950">
-  <VeoHeroBackground />
+  <HeroGlowBackground />
   <div class="absolute inset-0 bg-black/60 z-0 pointer-events-none"></div>
 
   <div class="container mx-auto px-6 md:px-12 relative z-10 h-full">

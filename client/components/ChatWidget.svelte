@@ -93,7 +93,41 @@
     }
   });
 
-  async function readStream(res: globalThis.Response, assistantIndex: number) {
+  // Buffer para efecto typewriter por chunks (igual que en brianleft-portfolio)
+  let typewriterBuffer = $state('');
+  let typewriterIndex = $state(0);
+  let typewriterInterval: ReturnType<typeof setInterval> | null = $state(null);
+  let isStreaming = $state(false);
+
+  function startTypewriter(assistantIndex: number) {
+    if (typewriterInterval) clearInterval(typewriterInterval);
+
+    typewriterInterval = setInterval(() => {
+      if (typewriterIndex < typewriterBuffer.length) {
+        const chunkSize = Math.floor(Math.random() * 3) + 2;
+        const nextChunk = typewriterBuffer.slice(typewriterIndex, typewriterIndex + chunkSize);
+        const updated = [...messages];
+        updated[assistantIndex] = {
+          ...updated[assistantIndex],
+          content: updated[assistantIndex].content + nextChunk,
+        };
+        messages = updated;
+        typewriterIndex += chunkSize;
+        messagesEndEl?.scrollIntoView({ behavior: 'smooth' });
+      } else if (!isStreaming) {
+        stopTypewriter();
+      }
+    }, 15);
+  }
+
+  function stopTypewriter() {
+    if (typewriterInterval) {
+      clearInterval(typewriterInterval);
+      typewriterInterval = null;
+    }
+  }
+
+  async function readStream(res: globalThis.Response) {
     const reader = res.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -114,16 +148,19 @@
         try {
           const parsed = JSON.parse(payload);
           if (parsed.text) {
-            const updated = [...messages];
-            updated[assistantIndex] = {
-              ...updated[assistantIndex],
-              content: updated[assistantIndex].content + parsed.text,
-            };
-            messages = updated;
+            typewriterBuffer += parsed.text;
           }
         } catch { /* skip malformed chunks */ }
       }
     }
+  }
+
+  async function drainTypewriter() {
+    isStreaming = false;
+    while (typewriterIndex < typewriterBuffer.length) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    }
+    stopTypewriter();
   }
 
   async function handleSubmit(e: SubmitEvent) {
@@ -138,6 +175,11 @@
     const assistantIndex = messages.length;
     messages = [...messages, { role: 'assistant', content: '' }];
 
+    typewriterBuffer = '';
+    typewriterIndex = 0;
+    isStreaming = true;
+    startTypewriter(assistantIndex);
+
     try {
       const history = messages
         .filter(m => m.content && m.content !== $t.chat.initial)
@@ -149,8 +191,15 @@
         body: JSON.stringify({ message: userMsg, history }),
       });
 
+      if (res.status === 429) {
+        typewriterBuffer = $t.chat.rateLimited;
+        await drainTypewriter();
+        return;
+      }
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await readStream(res, assistantIndex);
+      await readStream(res);
+      await drainTypewriter();
 
       if (!messages[assistantIndex].content) {
         const updated = [...messages];
@@ -170,15 +219,19 @@
           body: JSON.stringify({ message: userMsg, history }),
         });
 
-        if (res.ok) {
+        if (res.status === 429) {
+          typewriterBuffer = $t.chat.rateLimited;
+          await drainTypewriter();
+        } else if (res.ok) {
           const data = await res.json();
-          const updated = [...messages];
-          updated[assistantIndex] = { role: 'assistant', content: data.reply };
-          messages = updated;
+          typewriterBuffer = data.reply || $t.chat.error;
+          await drainTypewriter();
         } else {
           throw new Error('Fallback failed');
         }
       } catch {
+        stopTypewriter();
+        isStreaming = false;
         const updated = [...messages];
         updated[assistantIndex] = { role: 'assistant', content: $t.chat.error };
         messages = updated;
@@ -189,9 +242,10 @@
   }
 
   function handleClearChat() {
+    stopTypewriter();
+    isStreaming = false;
     messages = [{ role: 'assistant', content: $t.chat.initial }];
     localStorage.removeItem(LOCAL_STORAGE_KEY);
-    
   }
 </script>
 

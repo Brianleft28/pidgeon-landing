@@ -5,6 +5,7 @@
   import AboutSection from './components/AboutSection.svelte';
   import ServicesGrid from './components/ServicesGrid.svelte';
   import RDDSection from './components/RDDSection.svelte';
+  import ChatbotShowcase from './components/ChatbotShowcase.svelte';
   import TeamSection from './components/TeamSection.svelte';
   import ContactCTA from './components/TerminalContact.svelte';
   import FAQSection from './components/FAQSection.svelte';
@@ -26,6 +27,7 @@
     <Hero />
     <AboutSection />
     <RDDSection />
+    <ChatbotShowcase />
     <ServicesGrid />
     <TeamSection />
     <FAQSection />

@@ -12,9 +12,6 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [tailwindcss(), svelte()],
       define: {
-        "process.env.VITE_MP_PUBLIC_KEY": JSON.stringify(
-          env.VITE_MP_PUBLIC_KEY,
-        ),
         "process.env.VITE_API_URL": JSON.stringify(
           env.VITE_API_URL || "http://localhost:3000",
         ),

@@ -4,10 +4,14 @@ import {
   Body,
   Res,
   BadRequestException,
+  UseGuards,
 } from "@nestjs/common";
 import { ChatService } from "./chat.service";
+import { ThrottlerGuard, Throttle } from "@nestjs/throttler";
 import type { Response } from "express";
 
+@UseGuards(ThrottlerGuard)
+@Throttle({ chat: { limit: 20, ttl: 3600000 } })
 @Controller("chat")
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
@@ -31,8 +35,9 @@ export class ChatController {
       throw new BadRequestException("El mensaje es requerido");
     }
 
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Transfer-Encoding", "chunked");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders();

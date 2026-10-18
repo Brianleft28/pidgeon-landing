@@ -32,13 +32,40 @@
   let slides = $derived(($t.chatbots?.slides ?? []) as ChatbotSlide[]);
   let activeIndex = $state(0);
   let isPaused = $state(false);
+  let isInView = $state(false);
   let progress = $state(0);
+  let sectionEl = $state<HTMLElement>();
   let trackEl = $state<HTMLDivElement>();
-  let chatBodyEls = $state<Record<number, HTMLDivElement | null>>({});
+  const chatBodyEls: Record<number, HTMLDivElement | null> = {};
+
+  let isProgrammaticScroll = false;
+  let programmaticScrollTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Mensajes renderizados en el slide activo (con streaming por chunks)
   let renderedMessages = $state<RenderedMessage[]>([]);
   let isBotStreaming = $state(false);
+
+  // Detectar cuando la sección entra en el viewport para arrancar desde el Slide 1 (WhatsApp)
+  // y no avanzar en segundo plano mientras el usuario está arriba en el Hero
+  $effect(() => {
+    if (!sectionEl || typeof IntersectionObserver === 'undefined') {
+      isInView = true;
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) {
+          isInView = entry.isIntersecting;
+        }
+      },
+      { threshold: 0.2 }
+    );
+
+    observer.observe(sectionEl);
+    return () => observer.disconnect();
+  });
 
   function goToSlide(index: number, scrollTrack = true) {
     const total = slides.length;
@@ -48,8 +75,13 @@
     progress = 0;
 
     if (scrollTrack && trackEl) {
+      isProgrammaticScroll = true;
+      if (programmaticScrollTimeout) clearTimeout(programmaticScrollTimeout);
       const slideWidth = trackEl.clientWidth;
       trackEl.scrollTo({ left: slideWidth * next, behavior: 'smooth' });
+      programmaticScrollTimeout = setTimeout(() => {
+        isProgrammaticScroll = false;
+      }, 650);
     }
   }
 
@@ -62,7 +94,7 @@
   }
 
   function handleTrackScroll() {
-    if (!trackEl) return;
+    if (!trackEl || isProgrammaticScroll) return;
     const width = trackEl.clientWidth;
     if (width <= 0) return;
     const idx = Math.round(trackEl.scrollLeft / width);
@@ -72,16 +104,16 @@
     }
   }
 
-  // Auto-rotación cada 20 segundos con barra de progreso suave
+  // Auto-rotación cada 20 segundos con barra de progreso suave (solo cuando es visible)
   $effect(() => {
     const total = slides.length;
-    if (!total) return;
+    if (!total || !isInView) return;
 
     const tickMs = 100;
     const step = (tickMs / AUTO_ADVANCE_MS) * 100;
 
     const timer = setInterval(() => {
-      if (isPaused || document.hidden) return;
+      if (isPaused || !isInView || document.hidden) return;
       progress += step;
       if (progress >= 100) {
         progress = 0;
@@ -95,7 +127,7 @@
   // Simulación de conversación con llegada por chunks (estilo portfolio)
   $effect(() => {
     const currentSlide = slides[activeIndex];
-    if (!currentSlide) return;
+    if (!currentSlide || !isInView) return;
 
     let cancelled = false;
     let chunkInterval: ReturnType<typeof setInterval> | null = null;
@@ -219,6 +251,7 @@
 
 <section
   id="chatbots"
+  bind:this={sectionEl}
   class="py-24 bg-slate-950 relative overflow-hidden border-t border-slate-900"
   aria-roledescription="carousel"
   aria-label="AI Chatbots Showcase"

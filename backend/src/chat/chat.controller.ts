@@ -10,6 +10,12 @@ import { ChatService } from "./chat.service";
 import { ThrottlerGuard, Throttle } from "@nestjs/throttler";
 import type { Response } from "express";
 
+interface ChatRequestBody {
+  message: string;
+  history?: { role: "user" | "assistant"; content: string }[];
+  locale?: string;
+}
+
 @UseGuards(ThrottlerGuard)
 @Throttle({ chat: { limit: 20, ttl: 3600000 } })
 @Controller("chat")
@@ -17,20 +23,15 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @Post("message")
-  async sendMessage(
-    @Body() body: { message: string; history?: { role: "user" | "assistant"; content: string }[] }
-  ) {
+  async sendMessage(@Body() body: ChatRequestBody) {
     if (!body.message?.trim()) {
       throw new BadRequestException("El mensaje es requerido");
     }
-    return this.chatService.sendMessage(body.message, body.history);
+    return this.chatService.sendMessage(body.message, body.history, body.locale);
   }
 
   @Post("message/stream")
-  streamMessage(
-    @Body() body: { message: string; history?: { role: "user" | "assistant"; content: string }[] },
-    @Res() res: Response
-  ) {
+  streamMessage(@Body() body: ChatRequestBody, @Res() res: Response) {
     if (!body.message?.trim()) {
       throw new BadRequestException("El mensaje es requerido");
     }
@@ -45,6 +46,7 @@ export class ChatController {
     const stream = this.chatService.sendMessageStream(
       body.message,
       body.history,
+      body.locale,
     );
 
     (async () => {

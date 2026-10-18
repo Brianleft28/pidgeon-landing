@@ -49,7 +49,16 @@ export const translations = {
         image: "/assets/brian.png",
         imagePosition: "center 15%",
       },
-
+      {
+        name: "Thomas Pineda",
+        role: "Creative Director",
+        description:
+          "The mind behind the aesthetics. Visualizing user experiences that convert.",
+        link: "https://www.behance.net/thomasepineda",
+        linkType: "behance",
+        image: "/assets/thomas.png",
+        imagePosition: "center center",
+      },
       {
         name: "Gastón Alejandro",
         role: "Operations & Strategy",
@@ -351,43 +360,6 @@ export const translations = {
           ],
         },
         {
-          id: "crm-leads",
-          channel: "Web & Instagram · CRM Sync",
-          accent: "purple",
-          title: "Smart Lead Qualification & CRM Sync",
-          desc: "Interviews incoming prospects naturally, identifies volume, urgency, and budget, and creates the deal in your CRM automatically.",
-          metrics: [
-            "Filters & scores high-intent leads automatically",
-            "Registers contact, company & notes directly in CRM",
-            "Notifies the assigned account executive on WhatsApp",
-          ],
-          planTag: "AI Chatbot — Lead Qualification & CRM",
-          messages: [
-            {
-              role: "user",
-              time: "10:42",
-              text: "Hello, we want to automate order intake across our 12 branches.",
-            },
-            {
-              role: "assistant",
-              time: "10:42",
-              text: "We'd love to help! To assign the right specialist, roughly how many daily orders do those 12 branches process, and do you currently use an ERP or CRM?",
-              status: "✓ Intent detected: Multi-branch Enterprise Automation",
-            },
-            {
-              role: "user",
-              time: "10:43",
-              text: "Around 450 orders/day, we use SAP Business One.",
-            },
-            {
-              role: "assistant",
-              time: "10:43",
-              text: "Perfect. We connect directly with SAP via API/MCP. I've registered your profile with High Priority and scheduled a technical briefing with our Tech Lead for tomorrow at 11:00 AM.",
-              status: "✓ Lead scored (94%) · Synced to CRM & SAP pipeline",
-            },
-          ],
-        },
-        {
           id: "appointments",
           channel: "WhatsApp · Google Calendar",
           accent: "cyan",
@@ -421,6 +393,43 @@ export const translations = {
               time: "16:09",
               text: "Confirmed, Martina! Your appointment with Dr. Lopez is set for Thursday at 17:00 hs. I'll send you a reminder here 24 hours before.",
               status: "✓ Event booked in Calendar · Reminder scheduled",
+            },
+          ],
+        },
+        {
+          id: "crm-leads",
+          channel: "Web & Instagram · CRM Sync",
+          accent: "purple",
+          title: "Smart Lead Qualification & CRM Sync",
+          desc: "Interviews incoming prospects naturally, identifies volume, urgency, and budget, and creates the deal in your CRM automatically.",
+          metrics: [
+            "Filters & scores high-intent leads automatically",
+            "Registers contact, company & notes directly in CRM",
+            "Notifies the assigned account executive on WhatsApp",
+          ],
+          planTag: "AI Chatbot — Lead Qualification & CRM",
+          messages: [
+            {
+              role: "user",
+              time: "10:42",
+              text: "Hello, we want to automate order intake across our 12 branches.",
+            },
+            {
+              role: "assistant",
+              time: "10:42",
+              text: "We'd love to help! To assign the right specialist, roughly how many daily orders do those 12 branches process, and do you currently use an ERP or CRM?",
+              status: "✓ Intent detected: Multi-branch Enterprise Automation",
+            },
+            {
+              role: "user",
+              time: "10:43",
+              text: "Around 450 orders/day, we use SAP Business One.",
+            },
+            {
+              role: "assistant",
+              time: "10:43",
+              text: "Perfect. We connect directly with SAP via API/MCP. I've registered your profile with High Priority and scheduled a technical briefing with our Tech Lead for tomorrow at 11:00 AM.",
+              status: "✓ Lead scored (94%) · Synced to CRM & SAP pipeline",
             },
           ],
         },
@@ -511,7 +520,16 @@ export const translations = {
         image: "/assets/brian.png",
         imagePosition: "center 15%",
       },
-
+      {
+        name: "Thomas Pineda",
+        role: "Director Creativo",
+        description:
+          "La mente detrás de la estética. Visualizando experiencias de usuario que convierten.",
+        link: "https://www.behance.net/thomasepineda",
+        linkType: "behance",
+        image: "/assets/thomas.png",
+        imagePosition: "center center",
+      },
       {
         name: "Gastón Alejandro",
         role: "Operaciones & Estrategia",
@@ -822,43 +840,6 @@ export const translations = {
           ],
         },
         {
-          id: "crm-leads",
-          channel: "Web & Instagram · Sincronización CRM",
-          accent: "purple",
-          title: "Calificación de Leads & Carga en CRM",
-          desc: "Entrevista de forma natural a cada prospecto, detecta volumen, urgencia y presupuesto, y crea la oportunidad calificada directo en tu CRM.",
-          metrics: [
-            "Filtra y puntúa leads de alta intención automáticamente",
-            "Registra contacto, empresa y notas directo en tu CRM",
-            "Notifica por WhatsApp al ejecutivo de cuentas asignado",
-          ],
-          planTag: "Chatbot IA — Calificación de Leads & CRM",
-          messages: [
-            {
-              role: "user",
-              time: "10:42",
-              text: "Hola, buscamos automatizar la toma de pedidos de nuestras 12 sucursales.",
-            },
-            {
-              role: "assistant",
-              time: "10:42",
-              text: "¡Excelente! Para asignarte al especialista indicado, ¿aproximadamente cuántos pedidos diarios procesan entre las 12 sucursales y qué sistema ERP o CRM utilizan hoy?",
-              status: "✓ Intención detectada: Automatización Enterprise Multi-sucursal",
-            },
-            {
-              role: "user",
-              time: "10:43",
-              text: "Unos 450 pedidos por día, usamos SAP Business One.",
-            },
-            {
-              role: "assistant",
-              time: "10:43",
-              text: "Perfecto. Nos integramos de forma nativa con SAP vía API/MCP. Ya cargué tu ficha con Prioridad Alta en nuestro CRM y agendé una reunión técnica con nuestro Tech Lead para mañana a las 11:00 hs.",
-              status: "✓ Lead calificado (Score 94%) · Sincronizado en CRM y SAP",
-            },
-          ],
-        },
-        {
           id: "appointments",
           channel: "WhatsApp · Google Calendar",
           accent: "cyan",
@@ -892,6 +873,43 @@ export const translations = {
               time: "16:09",
               text: "¡Confirmado, Martina! Te agendé con el Dr. López para este jueves a las 17:00 hs. Te voy a enviar un recordatorio por acá 24 horas antes.",
               status: "✓ Evento agendado en Calendar · Recordatorio programado",
+            },
+          ],
+        },
+        {
+          id: "crm-leads",
+          channel: "Web & Instagram · Sincronización CRM",
+          accent: "purple",
+          title: "Calificación de Leads & Carga en CRM",
+          desc: "Entrevista de forma natural a cada prospecto, detecta volumen, urgencia y presupuesto, y crea la oportunidad calificada directo en tu CRM.",
+          metrics: [
+            "Filtra y puntúa leads de alta intención automáticamente",
+            "Registra contacto, empresa y notas directo en tu CRM",
+            "Notifica por WhatsApp al ejecutivo de cuentas asignado",
+          ],
+          planTag: "Chatbot IA — Calificación de Leads & CRM",
+          messages: [
+            {
+              role: "user",
+              time: "10:42",
+              text: "Hola, buscamos automatizar la toma de pedidos de nuestras 12 sucursales.",
+            },
+            {
+              role: "assistant",
+              time: "10:42",
+              text: "¡Excelente! Para asignarte al especialista indicado, ¿aproximadamente cuántos pedidos diarios procesan entre las 12 sucursales y qué sistema ERP o CRM utilizan hoy?",
+              status: "✓ Intención detectada: Automatización Enterprise Multi-sucursal",
+            },
+            {
+              role: "user",
+              time: "10:43",
+              text: "Unos 450 pedidos por día, usamos SAP Business One.",
+            },
+            {
+              role: "assistant",
+              time: "10:43",
+              text: "Perfecto. Nos integramos de forma nativa con SAP vía API/MCP. Ya cargué tu ficha con Prioridad Alta en nuestro CRM y agendé una reunión técnica con nuestro Tech Lead para mañana a las 11:00 hs.",
+              status: "✓ Lead calificado (Score 94%) · Sincronizado en CRM y SAP",
             },
           ],
         },

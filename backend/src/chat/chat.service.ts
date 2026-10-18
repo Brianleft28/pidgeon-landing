@@ -1,41 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { GoogleGenAI } from "@google/genai";
+import { BASE_KNOWLEDGE, buildFullPrompt } from "./knowledge-base";
 
-const SYSTEM_PROMPT = `You are the AI assistant for Pidgeon Solutions, a software & AI studio founded by Brian Benegas and his partners (Gastón Alejandro).
+const SYSTEM_INSTRUCTION = `Sos el asistente conversacional de Pidgeon Solutions (Brian Benegas, Thomas Pineda y Gastón Alejandro).
+Respondés de forma concisa, bien estructurada con viñetas cuando listas planes o servicios, sin usar encabezados (#), en español argentino (voseo: podés, tenés, escribinos) cuando te hablan en español o en inglés cuando te hablan en inglés.
 
-Your role: Help potential and existing clients with questions about our services, AI chatbots, pricing plans, and technical capabilities.
-
-Company info:
-- Pidgeon Solutions specializes in AI Chatbots & Conversational Agents, GovTech, enterprise web apps, and workflow automation.
-- Team: Brian Benegas (Tech Lead & Infrastructure), Gastón Alejandro (Operations & Strategy).
-- Core stack: Svelte 5, NestJS, TypeScript, Docker, Google Gemini AI, Model Context Protocol (MCP).
-
-Featured Service — AI Chatbots & Conversational Agents:
-1. 24/7 WhatsApp & Web Customer Care: Instant answers on catalog, pricing, stock, and FAQs while the client sleeps.
-2. Lead Qualification & CRM Sync: Interviews prospects, scores intent/budget, and pushes qualified leads straight into the CRM.
-3. Automated Appointment & Booking Bots: Checks real-time calendar availability, books slots, and sends WhatsApp reminders.
-4. GovTech Citizen Desk (MCP): Connects to municipal/internal databases in real time so citizens can check file status, requirements, and procedures 24/7.
-
-Plans (reference pricing; contracting is coordinated directly with our team via Contact form or WhatsApp, no online checkout on the site):
-1. Entrepreneur (US$100/mo or US$1,000/yr) — One-page website, contact form, free domain (1yr), basic hosting.
-2. Small Business (US$250/mo or US$2,500/yr) — Multi-page site, catalog/e-commerce (up to 50 products), blog, Google Maps, basic SEO.
-3. Custom System / AI & Enterprise (US$1,000+) — Custom AI chatbots, CRM/ERP, unlimited users, API/MCP integrations, advanced automation, priority support.
-
-Launch offer: 30% OFF on the first website.
-
-Three technology pillars:
-- LLM (Intelligence): AI that understands natural language and makes decisions.
-- MCP (Context): Connects AI securely to real business data, calendars, and CRMs in real time.
-- Automation (Execution): Executes tasks like scheduling appointments, sending invoices, updating CRMs, and alerting teams.
-
-Rules:
-- Respond in the same language the user writes in (Spanish or English).
-- Be professional, friendly, direct, and concise (limit responses to 4-6 sentences).
-- Do not invent prices or features that don't exist.
-- For custom chatbots or complex technical questions, invite the user to leave a message in the Contact modal or reach out via WhatsApp.
-- WhatsApp contact: +54 11 3155-6315
-- Email contact: soporte@pidgeonsolution.com
-`;
+${BASE_KNOWLEDGE}`;
 
 @Injectable()
 export class ChatService {
@@ -56,7 +26,6 @@ export class ChatService {
 
   /**
    * Cadena de modelos en orden de preferencia (igual que en brianleft-portfolio).
-   * Si el modelo principal devuelve 429 (cuota agotada) o falla, salta al siguiente.
    */
   private getModelChain(): string[] {
     const primary = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
@@ -86,16 +55,44 @@ export class ChatService {
     );
   }
 
+  /**
+   * Normaliza el historial para que siempre empiece con 'user' y alterne roles ('user' <-> 'model'),
+   * evitando errores o respuestas degradadas en Gemini cuando hay saludos iniciales en localStorage.
+   */
   private buildHistory(history?: { role: "user" | "assistant"; content: string }[]) {
-    return (history || []).map((msg) => ({
-      role: (msg.role === "assistant" ? "model" : "user") as "user" | "model",
-      parts: [{ text: msg.content }],
-    }));
+    const normalized: { role: "user" | "model"; parts: { text: string }[] }[] = [];
+
+    for (const msg of history || []) {
+      const text = msg?.content?.trim();
+      if (!text) continue;
+
+      const role: "user" | "model" = msg.role === "assistant" ? "model" : "user";
+
+      // Gemini requiere que el historial comience con un turno de 'user'
+      if (normalized.length === 0 && role === "model") {
+        continue;
+      }
+
+      const prev = normalized[normalized.length - 1];
+      if (prev && prev.role === role) {
+        prev.parts[0].text += `\n${text}`;
+      } else {
+        normalized.push({ role, parts: [{ text }] });
+      }
+    }
+
+    // El último turno del history previo a sendMessage debe ser 'model'
+    if (normalized.length > 0 && normalized[normalized.length - 1].role === "user") {
+      normalized.pop();
+    }
+
+    return normalized;
   }
 
   async sendMessage(
     message: string,
     history?: { role: "user" | "assistant"; content: string }[],
+    locale?: string,
   ): Promise<{ reply: string }> {
     if (!this.ai) {
       return {
@@ -105,6 +102,11 @@ export class ChatService {
     }
 
     const chatHistory = this.buildHistory(history);
+    const { fullPrompt, matchedSlugs } = buildFullPrompt(message, locale);
+    this.logger.debug(
+      `RAG [${locale || "ES"}] "${message.slice(0, 50)}" -> [${matchedSlugs.join(", ")}]`,
+    );
+
     const chain = this.getModelChain();
     let lastError: any;
 
@@ -116,13 +118,14 @@ export class ChatService {
             model: modelName,
             history: chatHistory,
             config: {
-              systemInstruction: SYSTEM_PROMPT,
+              systemInstruction: SYSTEM_INSTRUCTION,
+              temperature: 0.35,
             },
           });
 
-          const response = await chat.sendMessage({ message });
+          const response = await chat.sendMessage({ message: fullPrompt });
           const reply =
-            response.text ||
+            response.text?.trim() ||
             "No pude generar una respuesta en este momento. Intentá de nuevo.";
           return { reply };
         } catch (error: any) {
@@ -150,6 +153,7 @@ export class ChatService {
   async *sendMessageStream(
     message: string,
     history?: { role: "user" | "assistant"; content: string }[],
+    locale?: string,
   ): AsyncGenerator<string> {
     if (!this.ai) {
       yield "El servicio de chat no está disponible en este momento. Escribinos por WhatsApp al +54 11 3155-6315.";
@@ -157,6 +161,11 @@ export class ChatService {
     }
 
     const chatHistory = this.buildHistory(history);
+    const { fullPrompt, matchedSlugs } = buildFullPrompt(message, locale);
+    this.logger.debug(
+      `RAG Stream [${locale || "ES"}] "${message.slice(0, 50)}" -> [${matchedSlugs.join(", ")}]`,
+    );
+
     const chain = this.getModelChain();
     let lastError: any;
 
@@ -168,11 +177,12 @@ export class ChatService {
             model: modelName,
             history: chatHistory,
             config: {
-              systemInstruction: SYSTEM_PROMPT,
+              systemInstruction: SYSTEM_INSTRUCTION,
+              temperature: 0.35,
             },
           });
 
-          const stream = await chat.sendMessageStream({ message });
+          const stream = await chat.sendMessageStream({ message: fullPrompt });
 
           for await (const chunk of stream) {
             const text = chunk.text;

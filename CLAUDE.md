@@ -4,7 +4,7 @@
 
 ## Proyecto e Identidad
 
-**Pidgeon Solutions** (`pidgeonsolutions.tech`) es un emprendimiento tecnológico (estudio de software especializado en Chatbots con IA, GovTech, aplicaciones enterprise y automatización) fundado por **Brian Benegas y sus socios** (Gastón Alejandro).
+**Pidgeon Solutions** (`pidgeonsolutions.tech`) es un emprendimiento tecnológico (estudio de software especializado en Chatbots con IA, automatización, aplicaciones enterprise y GovTech) fundado por **Brian Benegas y sus socios** (Thomas Pineda y Gastón Alejandro).
 
 - **Diferenciación estricta:** Este repositorio **NO** es el portfolio personal de Brian Benegas (`/home/brianleft/brianleft-portfolio` · `brianleft.com`).
 - **Alcance simplificado:** Funciona exclusivamente como landing page informativa con asistente conversacional IA y formulario de contacto. **Prohibido** incluir inicio de sesión (Auth/Login), base de datos de usuarios, pasarelas de pago online (Mercado Pago/Stripe) o generadores de video Veo.
@@ -16,7 +16,7 @@
 | Backend          | NestJS 10 + TypeScript (Chat + Contact + Throttle)|
 | Frontend         | Svelte 5 (Runes) + Vite 6 + Tailwind CSS v4       |
 | Rate Limiting    | `@nestjs/throttler` + Redis 7 propio (`pidgeon-net`)|
-| IA (Bot Cliente) | Google Gemini (`@google/genai`) con cadena fallback|
+| IA (Bot Cliente) | Google Gemini (`@google/genai`) + Mini-RAG (`knowledge-base.ts`) + cadena fallback|
 | Infraestructura  | Docker Compose (`backend`, `client`, `redis`)     |
 
 ## Estructura del Proyecto
@@ -26,7 +26,7 @@ pidgeon-landing/
 ├── backend/src/
 │   ├── main.ts              # Bootstrap NestJS, puerto 3000, trust proxy
 │   ├── app.module.ts        # Root module: AppThrottlerModule + Chat + Contact
-│   ├── chat/                # Bot Gemini con streaming SSE y fallback de modelos
+│   ├── chat/                # Bot Gemini con Mini-RAG (knowledge-base.ts), streaming SSE y fallback
 │   ├── contact/             # Envío de formulario de contacto vía SMTP
 │   └── throttler/           # Rate limiting por IP sobre Redis propio
 ├── client/
@@ -59,4 +59,5 @@ pidgeon-landing/
 ## Equipo
 
 - **Brian Benegas** — Tech Lead & Infrastructure
+- **Thomas Pineda** — Creative Director
 - **Gastón Alejandro** — Operations & Strategy

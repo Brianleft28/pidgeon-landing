@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { t } from '../stores';
-  import { get } from 'svelte/store';
+  import { t, lang } from '../stores';
   import { Marked } from 'marked';
   import hljs from 'highlight.js/lib/core';
   import javascript from 'highlight.js/lib/languages/javascript';
@@ -22,6 +21,8 @@
   hljs.registerLanguage('sql', sql);
 
   const marked = new Marked({
+    breaks: true,
+    gfm: true,
     renderer: {
       code({ text, lang }: { text: string; lang?: string }) {
         const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
@@ -188,7 +189,7 @@
       const res = await fetch(`${API_URL}/chat/message/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, history }),
+        body: JSON.stringify({ message: userMsg, history, locale: $lang }),
       });
 
       if (res.status === 429) {
@@ -216,7 +217,7 @@
         const res = await fetch(`${API_URL}/chat/message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: userMsg, history }),
+          body: JSON.stringify({ message: userMsg, history, locale: $lang }),
         });
 
         if (res.status === 429) {
@@ -290,7 +291,7 @@
             >
               {#if msg.role === 'assistant'}
                 {#if msg.content}
-                  <div class="prose prose-sm prose-invert prose-emerald max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_a]:text-emerald-400">
+                  <div class="prose prose-sm prose-invert prose-emerald max-w-none [&_p]:my-1.5 [&_ul]:my-2 [&_ul]:pl-4 [&_ol]:my-2 [&_ol]:pl-4 [&_li]:my-1 [&_strong]:text-white [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_a]:text-emerald-400">
                     {@html parseMarkdown(msg.content)}
                   </div>
                 {/if}

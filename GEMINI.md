@@ -1,7 +1,7 @@
 # Reglas de Pidgeon Solutions
 
 ## Identidad del Proyecto
-- **Qué es:** **Pidgeon Solutions** (`pidgeonsolutions.tech`) es un emprendimiento tecnológico (estudio de software especializado en GovTech, aplicaciones enterprise, automatización y chatbots con IA) fundado por **Brian Benegas y sus socios** (Gastón Alejandro).
+- **Qué es:** **Pidgeon Solutions** (`pidgeonsolutions.tech`) es un emprendimiento tecnológico (estudio de software especializado en chatbots con IA, automatización, aplicaciones enterprise y GovTech) fundado por **Brian Benegas y sus socios** (Thomas Pineda y Gastón Alejandro).
 - **Diferenciación estricta:** Este proyecto **NO** es el portfolio personal de Brian Benegas (`/home/brianleft/brianleft-portfolio` · `brianleft.com`). Está prohibido compartir contenedores, instancias de Redis, bases de datos, redes Docker o archivos `.env` con `brianleft-portfolio`.
 
 ## Alcance y Simplificación

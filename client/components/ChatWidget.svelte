@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t, lang } from '../stores';
+  import AdminBackoffice from './AdminBackoffice.svelte';
   import { Marked } from 'marked';
   import hljs from 'highlight.js/lib/core';
   import javascript from 'highlight.js/lib/languages/javascript';
@@ -47,6 +48,7 @@
   type Message = { role: 'user' | 'assistant'; content: string };
 
   const LOCAL_STORAGE_KEY = 'pidgeonChatHistory';
+  const SESSION_TOKEN_KEY = 'pidgeonAdminToken';
   const API_URL = (import.meta as any).env?.VITE_API_URL
     ?? process.env.VITE_API_URL
     ?? 'http://localhost:3000';
@@ -56,7 +58,45 @@
   let inputValue = $state('');
   let isLoading = $state(false);
   let messagesEndEl = $state<HTMLDivElement>();
-  
+
+  // Estado del Backoffice Oculto y Shadow Word (estilo brianleft-portfolio)
+  let shadowAuthStep = $state<'idle' | 'username' | 'password'>('idle');
+  let pendingAdminUsername = $state('');
+  let adminToken = $state('');
+  let isAdminAuthenticated = $state(false);
+  let isBackofficeOpen = $state(false);
+  let shadowSystemBanner = $state('');
+
+  function showShadowBanner(msg: string) {
+    shadowSystemBanner = msg;
+    setTimeout(() => {
+      if (shadowSystemBanner === msg) shadowSystemBanner = '';
+    }, 4500);
+  }
+
+  // Verificar si ya hay sesión admin al montar
+  $effect(() => {
+    try {
+      const savedToken = sessionStorage.getItem(SESSION_TOKEN_KEY) || '';
+      if (savedToken) adminToken = savedToken;
+
+      const headers: Record<string, string> = {};
+      if (savedToken) headers['X-Admin-Token'] = savedToken;
+
+      fetch(`${API_URL}/admin/me`, {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.authenticated) {
+            isAdminAuthenticated = true;
+          }
+        })
+        .catch(() => {});
+    } catch { /* ignore */ }
+  });
 
   // Load history on mount
   $effect(() => {
@@ -164,11 +204,115 @@
     stopTypewriter();
   }
 
+  async function handleAdminLogout() {
+    try {
+      await fetch(`${API_URL}/admin/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch { /* ignore */ }
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    adminToken = '';
+    isAdminAuthenticated = false;
+    isBackofficeOpen = false;
+    shadowAuthStep = 'idle';
+    pendingAdminUsername = '';
+    showShadowBanner('👋 Sesión de Backoffice cerrada.');
+  }
+
+  function cancelShadowAuth() {
+    shadowAuthStep = 'idle';
+    pendingAdminUsername = '';
+    inputValue = '';
+  }
+
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
 
-    const userMsg = inputValue;
+    const rawInput = inputValue;
+    const trimmed = rawInput.trim();
+
+    // 1. Paso 1 de autenticación oculta: captura de usuario
+    if (shadowAuthStep === 'username') {
+      pendingAdminUsername = trimmed;
+      inputValue = '';
+      shadowAuthStep = 'password';
+      return;
+    }
+
+    // 2. Paso 2 de autenticación oculta: captura de contraseña enmascarada (nunca va a localStorage ni a Gemini)
+    if (shadowAuthStep === 'password') {
+      const password = rawInput;
+      const username = pendingAdminUsername;
+      inputValue = '';
+      shadowAuthStep = 'idle';
+      pendingAdminUsername = '';
+      isLoading = true;
+
+      try {
+        const res = await fetch(`${API_URL}/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ username, password }),
+        });
+
+        if (!res.ok) {
+          showShadowBanner('❌ Credenciales inválidas');
+        } else {
+          const data = await res.json();
+          adminToken = data.token || '';
+          if (adminToken) {
+            sessionStorage.setItem(SESSION_TOKEN_KEY, adminToken);
+          }
+          isAdminAuthenticated = true;
+          isBackofficeOpen = true;
+          showShadowBanner(`🔓 Sesión iniciada como @${data.user?.username || username}`);
+        }
+      } catch {
+        showShadowBanner('❌ Error de conexión con el servidor');
+      } finally {
+        isLoading = false;
+      }
+      return;
+    }
+
+    // 3. Interceptar posible Shadow Word (ej. /shadow, shadow, /admin, /shadow logout)
+    if (
+      trimmed.startsWith('/') ||
+      trimmed.toLowerCase() === 'shadow' ||
+      trimmed.toLowerCase().startsWith('shadow ')
+    ) {
+      try {
+        const checkRes = await fetch(`${API_URL}/admin/shadow-verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: trimmed }),
+        });
+        if (checkRes.ok) {
+          const checkData = await checkRes.json();
+          if (checkData?.match) {
+            inputValue = '';
+            if (checkData.action === 'logout') {
+              await handleAdminLogout();
+              return;
+            }
+            if (isAdminAuthenticated) {
+              isBackofficeOpen = true;
+              return;
+            }
+            shadowAuthStep = 'username';
+            return;
+          }
+        }
+      } catch {
+        // Si falla la verificación, sigue el flujo normal
+      }
+    }
+
+    // 4. Flujo normal de conversación con Gemini
+    const userMsg = rawInput;
     inputValue = '';
     messages = [...messages, { role: 'user', content: userMsg }];
     isLoading = true;
@@ -181,6 +325,11 @@
     isStreaming = true;
     startTypewriter(assistantIndex);
 
+    const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (adminToken) {
+      reqHeaders['X-Admin-Token'] = adminToken;
+    }
+
     try {
       const history = messages
         .filter(m => m.content && m.content !== $t.chat.initial)
@@ -188,7 +337,8 @@
 
       const res = await fetch(`${API_URL}/chat/message/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
+        credentials: 'include',
         body: JSON.stringify({ message: userMsg, history, locale: $lang }),
       });
 
@@ -216,7 +366,8 @@
 
         const res = await fetch(`${API_URL}/chat/message`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: reqHeaders,
+          credentials: 'include',
           body: JSON.stringify({ message: userMsg, history, locale: $lang }),
         });
 
@@ -250,6 +401,15 @@
   }
 </script>
 
+<!-- Backoffice Oculto Modal -->
+<AdminBackoffice
+  isOpen={isBackofficeOpen}
+  apiUrl={API_URL}
+  {adminToken}
+  onClose={() => (isBackofficeOpen = false)}
+  onLogout={handleAdminLogout}
+/>
+
 <div class="fixed z-50 flex flex-col items-end pointer-events-none {isOpen ? 'inset-0 sm:inset-auto sm:bottom-6 sm:right-24' : 'bottom-6 right-24'}">
   <!-- Chat Panel -->
   {#if isOpen}
@@ -270,7 +430,17 @@
             </p>
           </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5">
+          {#if isAdminAuthenticated}
+            <button
+              type="button"
+              onclick={() => (isBackofficeOpen = true)}
+              title="Abrir Backoffice Oculto"
+              class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono font-semibold transition-all cursor-pointer"
+            >
+              ⚙️ Backoffice
+            </button>
+          {/if}
           <button onclick={handleClearChat} title="Limpiar chat" class="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           </button>
@@ -279,6 +449,13 @@
           </button>
         </div>
       </div>
+
+      {#if shadowSystemBanner}
+        <div class="px-4 py-2 bg-slate-900 border-b border-emerald-500/30 text-xs font-mono text-emerald-400 flex items-center justify-between">
+          <span>{shadowSystemBanner}</span>
+          <button type="button" onclick={() => (shadowSystemBanner = '')} class="text-slate-500 hover:text-white">✕</button>
+        </div>
+      {/if}
 
       <!-- Messages -->
       <div class="flex-1 overflow-y-auto p-4 space-y-3">
@@ -315,14 +492,39 @@
         <div bind:this={messagesEndEl}></div>
       </div>
 
-      <!-- Input -->
+      <!-- Input (soporta prompt enmascarado cuando se activa la Shadow Word) -->
       <form onsubmit={handleSubmit} class="p-3 bg-slate-900/80 border-t border-slate-800">
-        <div class="flex items-center gap-2 bg-slate-800/50 rounded-xl px-3 py-2 border border-slate-700/50 focus-within:border-emerald-500/50 transition-colors">
+        {#if shadowAuthStep !== 'idle'}
+          <div class="flex items-center justify-between px-2 pb-1.5 text-[11px] font-mono text-emerald-400">
+            <span>
+              {#if shadowAuthStep === 'username'}
+                🔐 Shadow Access · Ingresá tu usuario:
+              {:else}
+                🔐 Usuario: <strong>{pendingAdminUsername}</strong> · Ingresá tu clave:
+              {/if}
+            </span>
+            <button
+              type="button"
+              onclick={cancelShadowAuth}
+              class="text-slate-400 hover:text-white underline cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </div>
+        {/if}
+        <div class="flex items-center gap-2 bg-slate-800/50 rounded-xl px-3 py-2 border {shadowAuthStep !== 'idle' ? 'border-emerald-500/60' : 'border-slate-700/50'} focus-within:border-emerald-500/50 transition-colors">
           <input
-            type="text"
+            type={shadowAuthStep === 'password' ? 'password' : 'text'}
             bind:value={inputValue}
-            placeholder={$t.chat.placeholder}
-            class="flex-1 bg-transparent border-none outline-none text-white text-sm placeholder-slate-500"
+            placeholder={
+              shadowAuthStep === 'username'
+                ? 'usuario...'
+                : shadowAuthStep === 'password'
+                  ? '••••••••••••'
+                  : $t.chat.placeholder
+            }
+            autocomplete={shadowAuthStep === 'password' ? 'current-password' : 'off'}
+            class="flex-1 bg-transparent border-none outline-none text-white text-sm placeholder-slate-500 {shadowAuthStep !== 'idle' ? 'font-mono' : ''}"
             disabled={isLoading}
           />
           <button

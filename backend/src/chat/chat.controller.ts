@@ -2,13 +2,14 @@ import {
   Controller,
   Post,
   Body,
+  Req,
   Res,
   BadRequestException,
   UseGuards,
 } from "@nestjs/common";
 import { ChatService } from "./chat.service";
 import { ThrottlerGuard, Throttle } from "@nestjs/throttler";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 
 interface ChatRequestBody {
   message: string;
@@ -22,16 +23,34 @@ interface ChatRequestBody {
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
+  private extractClientIp(req: Request): string {
+    const forwarded = req.headers["x-forwarded-for"];
+    if (typeof forwarded === "string" && forwarded.trim()) {
+      return forwarded.split(",")[0].trim();
+    }
+    return req.ip || "127.0.0.1";
+  }
+
   @Post("message")
-  async sendMessage(@Body() body: ChatRequestBody) {
+  async sendMessage(@Body() body: ChatRequestBody, @Req() req: Request) {
     if (!body.message?.trim()) {
       throw new BadRequestException("El mensaje es requerido");
     }
-    return this.chatService.sendMessage(body.message, body.history, body.locale);
+    const clientIp = this.extractClientIp(req);
+    return this.chatService.sendMessage(
+      body.message,
+      body.history,
+      body.locale,
+      clientIp,
+    );
   }
 
   @Post("message/stream")
-  streamMessage(@Body() body: ChatRequestBody, @Res() res: Response) {
+  streamMessage(
+    @Body() body: ChatRequestBody,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
     if (!body.message?.trim()) {
       throw new BadRequestException("El mensaje es requerido");
     }
@@ -43,10 +62,12 @@ export class ChatController {
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders();
 
+    const clientIp = this.extractClientIp(req);
     const stream = this.chatService.sendMessageStream(
       body.message,
       body.history,
       body.locale,
+      clientIp,
     );
 
     (async () => {
@@ -55,7 +76,7 @@ export class ChatController {
           res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
         }
         res.write("data: [DONE]\n\n");
-      } catch (err) {
+      } catch {
         res.write(`data: ${JSON.stringify({ error: "Stream error" })}\n\n`);
       } finally {
         res.end();

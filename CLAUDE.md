@@ -13,10 +13,11 @@
 
 | Capa             | Tecnología                                        |
 | ---------------- | ------------------------------------------------- |
-| Backend          | NestJS 10 + TypeScript (Chat + Contact + Throttle)|
+| Backend          | NestJS 10 + TypeScript (Admin + Chat + Contact + Throttle)|
 | Frontend         | Svelte 5 (Runes) + Vite 6 + Tailwind CSS v4       |
+| Persistencia     | SQLite nativo (`node:sqlite` en volumen `pidgeon-data`) |
 | Rate Limiting    | `@nestjs/throttler` + Redis 7 propio (`pidgeon-net`)|
-| IA (Bot Cliente) | Google Gemini (`@google/genai`) + Mini-RAG (`knowledge-base.ts`) + cadena fallback|
+| IA (Bot Cliente) | Google Gemini (`@google/genai`) + Mini-RAG dinámico + fallback|
 | Infraestructura  | Docker Compose (`backend`, `client`, `redis`)     |
 
 ## Estructura del Proyecto
@@ -25,18 +26,19 @@
 pidgeon-landing/
 ├── backend/src/
 │   ├── main.ts              # Bootstrap NestJS, puerto 3000, trust proxy
-│   ├── app.module.ts        # Root module: AppThrottlerModule + Chat + Contact
-│   ├── chat/                # Bot Gemini con Mini-RAG (knowledge-base.ts), streaming SSE y fallback
-│   ├── contact/             # Envío de formulario de contacto vía SMTP
-│   └── throttler/           # Rate limiting por IP sobre Redis propio
+│   ├── app.module.ts        # Root module: Admin + AppThrottler + Chat + Contact
+│   ├── admin/               # Backoffice Oculto (SQLite, Shadow Word, Memorias, Settings, Shadowban)
+│   ├── chat/                # Bot Gemini con Mini-RAG dinámico, streaming SSE y fallback
+│   ├── contact/             # Envío de contacto vía SMTP + registro automático de LEAD en SQLite
+│   └── throttler/           # Rate limiting por IP sobre Redis propio (admins exentos)
 ├── client/
 │   ├── App.svelte           # Root component (layout de secciones)
 │   ├── stores.ts            # Estado global: lang, t, ContactModal
 │   ├── i18n.ts              # Traducciones ES/EN
 │   ├── types.ts             # Tipos de UI
-│   └── components/          # Hero, RDDSection, ChatbotShowcase, ServicesGrid, ChatWidget, etc.
-├── docs/                    # Documentación técnica (Doc as Code)
-└── docker-compose.yml       # 3 servicios: backend:4001->3000, client:3002->80, redis:6379 (interno)
+│   └── components/          # Hero, RDDSection, ChatbotShowcase, ChatWidget, AdminBackoffice, etc.
+├── docs/                    # Documentación técnica y Planroad (docs/ROADMAP.md)
+└── docker-compose.yml       # 3 servicios + volumen persistente pidgeon-data
 ```
 
 ## Convenciones de Código

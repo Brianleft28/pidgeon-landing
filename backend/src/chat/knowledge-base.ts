@@ -3,10 +3,134 @@ export interface KnowledgeEntry {
   title: string;
   keywords: string[];
   content: string;
+  priority?: number;
+  active?: boolean;
 }
 
+export interface SettingItem {
+  key: string;
+  value: string;
+  category: "pricing" | "contact" | "ai" | "security";
+  label: string;
+  description: string;
+}
+
+export interface AiConfigData {
+  displayName: string;
+  systemPrompt: string;
+  plansDirective: string;
+  finalDirectivesEs: string;
+  finalDirectivesEn: string;
+  temperature: number;
+  primaryModel: string;
+  fallbackModels: string;
+}
+
+export const DEFAULT_SETTINGS: SettingItem[] = [
+  {
+    key: "plan_emprendedor_mo",
+    value: "US$ 100",
+    category: "pricing",
+    label: "Plan Emprendedor (Mensual)",
+    description: "Precio mensual del Plan Emprendedor / Entrepreneur",
+  },
+  {
+    key: "plan_emprendedor_yr",
+    value: "US$ 1.000",
+    category: "pricing",
+    label: "Plan Emprendedor (Anual)",
+    description: "Precio anual del Plan Emprendedor (17% OFF)",
+  },
+  {
+    key: "plan_pyme_mo",
+    value: "US$ 250",
+    category: "pricing",
+    label: "Plan Pequeña Empresa (Mensual)",
+    description: "Precio mensual del Plan Pequeña Empresa / Small Business",
+  },
+  {
+    key: "plan_pyme_yr",
+    value: "US$ 2.500",
+    category: "pricing",
+    label: "Plan Pequeña Empresa (Anual)",
+    description: "Precio anual del Plan Pequeña Empresa (17% OFF)",
+  },
+  {
+    key: "plan_medida_from",
+    value: "US$ 1.000",
+    category: "pricing",
+    label: "Plan Sistema a Medida (Desde)",
+    description: "Inversión base para Sistemas a Medida / Custom System",
+  },
+  {
+    key: "offer_discount",
+    value: "30% OFF",
+    category: "pricing",
+    label: "Oferta de Lanzamiento",
+    description: "Descuento promocional vigente en primera web",
+  },
+  {
+    key: "whatsapp_number",
+    value: "+54 11 3155-6315",
+    category: "contact",
+    label: "WhatsApp Comercial",
+    description: "Número de WhatsApp directo para demos y ventas",
+  },
+  {
+    key: "support_email",
+    value: "soporte@pidgeonsolutions.com",
+    category: "contact",
+    label: "Email de Soporte / Contacto",
+    description: "Correo oficial de soporte y consultas",
+  },
+  {
+    key: "chat_rate_limit",
+    value: "20",
+    category: "security",
+    label: "Límite de Consultas / Hora (IP)",
+    description: "Cantidad máxima de mensajes por hora para visitantes públicos",
+  },
+];
+
+export const DEFAULT_AI_CONFIG: AiConfigData = {
+  displayName: "Pidgeon Assistant",
+  systemPrompt: `## IDENTIDAD Y ROL
+Sos el asistente oficial de IA de **Pidgeon Solutions** (estudio de software e inteligencia artificial fundado por Brian Benegas, Thomas Pineda y Gastón Alejandro).
+Tu objetivo es asesorar a clientes potenciales de forma clara, precisa, cercana y comercialmente efectiva sobre nuestros **Chatbots con IA**, **Planes Web**, **Sistemas a Medida** y **Automatizaciones**.
+
+## REGLAS DE HONESTIDAD Y PRECISIÓN (INNEGOCIABLES)
+- Basate ESTRICTAMENTE en el CONTEXTO provisto abajo. No inventes precios, planes ni funcionalidades que no figuren en el contexto.
+- Recordá que en el sitio web NO se realizan cobros automáticos ni hay inicio de sesión público: para contratar o pedir una demo, invitá a usar el botón de contacto de la web o escribir al WhatsApp **{{whatsapp_number}}**.
+- Cuando enumeres los casos de uso de Chatbots, dejá siempre **GovTech (Atención Ciudadana)** en último lugar, priorizando primero los casos comerciales (WhatsApp Ventas 24/7, Turnos/Agenda y Calificación de Leads/CRM).
+
+## FORMATO DE RESPUESTA (MUY IMPORTANTE)
+- NUNCA uses encabezados grandes (# ni ##). Esto es una ventana de chat compacta, no un documento largo.
+- Separar ideas con saltos de línea en blanco para que la lectura sea limpia y aireada.
+- Usá viñetas con \`•\` o \`-\` y **negritas** para destacar nombres de planes, precios y beneficios clave.
+- Sé conciso y directo: respondé en 1 párrafo breve de apertura + viñetas claras (si enumerás planes o servicios) + 1 línea final de cierre o llamada a la acción.
+- No repitas "¡Hola!" si ya hay historial previo en la conversación.`,
+  plansDirective: `INSTRUCCIÓN ESPECIAL PARA CONSULTA DE PLANES / PRECIOS:
+- Presentá los planes de forma clara, ordenada y fácil de escanear usando viñetas (•).
+- Usá este formato por cada plan:
+  • **Nombre del Plan (Precio mensual | Precio anual):** qué incluye en 1 o 2 oraciones claras.
+- Si respondés en español, llamalos **Emprendedor**, **Pequeña Empresa** y **Sistema a Medida** (NUNCA uses "Entrepreneur" ni "Small Business" en una respuesta en español).
+- Aclará que **Sistema a Medida** arranca **desde {{plan_medida_from}}** según alcance (no digas "{{plan_medida_from}}/mes").
+- Mencioná el **17% de ahorro anual** y el **{{offer_discount}} de lanzamiento** en la primera web.`,
+  finalDirectivesEs: `- **IDIOMA:** Respondé en Español.
+- **TONO EN ESPAÑOL:** Usá **español argentino natural y profesional (voseo: vos, podés, tenés, necesitás, escribinos, contanos)**. Prohibido usar "tú", "puedes" o "te invitamos".
+- **NOMBRES DE PLANES:** Usá únicamente **Emprendedor**, **Pequeña Empresa** y **Sistema a Medida**.`,
+  finalDirectivesEn: `- **LANGUAGE:** Reply in English (or match the visitor's language if they wrote in Spanish).
+- **TONE:** Professional, clear, friendly, and conversion-oriented.
+- **PLAN NAMES:** In English use **Entrepreneur**, **Small Business**, and **Custom System**.`,
+  temperature: 0.35,
+  primaryModel: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
+  fallbackModels:
+    process.env.GEMINI_MODEL_FALLBACK ||
+    "gemini-3.1-flash-lite,gemini-3.5-flash-lite,gemini-2.5-flash",
+};
+
 /**
- * Contexto base que SIEMPRE se inyecta (equivalente a `memory.md` en brianleft-portfolio).
+ * Contexto base que SIEMPRE se inyecta (equivalente a `memory.md` / `index` en brianleft-portfolio).
  */
 export const BASE_KNOWLEDGE = `# Pidgeon Solutions — Base de Conocimiento Principal
 
@@ -19,24 +143,34 @@ export const BASE_KNOWLEDGE = `# Pidgeon Solutions — Base de Conocimiento Prin
   • **Gastón Alejandro** — Operaciones & Estrategia (Alineación tecnológica con objetivos comerciales y eficiencia operativa).
 
 ## Canales de Contacto y Contratación
-- **WhatsApp directo:** +54 11 3155-6315
-- **Email de soporte y consultas:** soporte@pidgeonsolutions.com
+- **WhatsApp directo:** {{whatsapp_number}}
+- **Email de soporte y consultas:** {{support_email}}
 - **Formulario en el sitio:** Botón "Empezar Ahora" / "Elegir Plan" / "Quiero este Chatbot" (abre el modal de contacto directo).
-- **Modalidad de contratación:** No se realiza cobro automático ni inicio de sesión en el sitio web. Todas las contrataciones y demostraciones se coordinan de forma directa y personalizada con nuestro equipo por WhatsApp o mediante el formulario de contacto.
+- **Modalidad de contratación:** No se realiza cobro automático ni inicio de sesión público en el sitio web. Todas las contrataciones y demostraciones se coordinan de forma directa y personalizada con nuestro equipo por WhatsApp ({{whatsapp_number}}) o mediante el formulario de contacto.
 
 ## Resumen Rápido de Planes
-• **Emprendedor (Plan Inicial):** US$ 100/mes o US$ 1.000/año (17% OFF anual). Ideal para tu primera web One-Page profesional.
-• **Pequeña Empresa (Más Popular):** US$ 250/mes o US$ 2.500/año (17% OFF anual). Web multi-página, catálogo/e-commerce hasta 50 productos, blog y SEO básico.
-• **Sistema a Medida (Enterprise & IA):** Desde US$ 1.000 (presupuesto según alcance, NO es una cuota fija mensual). Incluye Chatbots con IA a medida, CRM/ERP propio, integraciones API/MCP, usuarios ilimitados y automatización avanzada.
-• **Oferta de lanzamiento:** 30% OFF en tu primer sitio web.`;
+• **Emprendedor (Plan Inicial):** {{plan_emprendedor_mo}}/mes o {{plan_emprendedor_yr}}/año (17% OFF anual). Ideal para tu primera web One-Page profesional.
+• **Pequeña Empresa (Más Popular):** {{plan_pyme_mo}}/mes o {{plan_pyme_yr}}/año (17% OFF anual). Web multi-página, catálogo/e-commerce hasta 50 productos, blog y SEO básico.
+• **Sistema a Medida (Enterprise & IA):** Desde {{plan_medida_from}} (presupuesto según alcance, NO es una cuota fija mensual). Incluye Chatbots con IA a medida, CRM/ERP propio, integraciones API/MCP, usuarios ilimitados y automatización avanzada.
+• **Oferta de lanzamiento:** {{offer_discount}} en tu primer sitio web.`;
 
 /**
  * Memorias temáticas recuperadas por keywords curadas a mano (igual que en brianleft-portfolio).
  */
 export const KNOWLEDGE_ENTRIES: KnowledgeEntry[] = [
   {
+    slug: "base",
+    title: "Identidad, Equipo Fundador y Resumen Base (Siempre Activa)",
+    priority: 100,
+    active: true,
+    keywords: ["pidgeon", "equipo", "quienes son", "brian", "thomas", "gaston", "gastón", "contacto", "whatsapp"],
+    content: BASE_KNOWLEDGE,
+  },
+  {
     slug: "planes",
     title: "Detalle Completo de Planes, Precios y Qué Incluye Cada Uno",
+    priority: 90,
+    active: true,
     keywords: [
       "plan",
       "planes",
@@ -84,8 +218,8 @@ IMPORTANTE SOBRE NOMBRES SEGÚN IDIOMA:
 - Si respondés en **inglés**, usá los nombres en inglés: **Entrepreneur**, **Small Business** y **Custom System**.
 
 ### 1. Plan Emprendedor (EN: Entrepreneur)
-- **Precio mensual:** US$ 100/mes
-- **Precio anual:** US$ 1.000/año (ahorrás un 17%, equivalente a 2 meses bonificados)
+- **Precio mensual:** {{plan_emprendedor_mo}}/mes
+- **Precio anual:** {{plan_emprendedor_yr}}/año (ahorrás un 17%, equivalente a 2 meses bonificados)
 - **Para quién es:** Ideal para tu primer sitio web profesional, landing page o presencia online rápida.
 - **Qué incluye:**
   • Sitio Web One-Page (una sola página con toda tu información)
@@ -95,8 +229,8 @@ IMPORTANTE SOBRE NOMBRES SEGÚN IDIOMA:
 - **Qué NO incluye:** E-commerce/carrito, Blog de noticias ni Sistemas a medida.
 
 ### 2. Plan Pequeña Empresa (EN: Small Business) — ⭐ MÁS POPULAR / RECOMENDADO
-- **Precio mensual:** US$ 250/mes
-- **Precio anual:** US$ 2.500/año (ahorrás un 17% pagando anual)
+- **Precio mensual:** {{plan_pyme_mo}}/mes
+- **Precio anual:** {{plan_pyme_yr}}/año (ahorrás un 17% pagando anual)
 - **Para quién es:** Comercios, consultorios y empresas en crecimiento que buscan vender más y posicionar en Google.
 - **Qué incluye:**
   • Sitio Web Multi-página (Inicio, Nosotros, Servicios, Contacto, etc.)
@@ -107,7 +241,7 @@ IMPORTANTE SOBRE NOMBRES SEGÚN IDIOMA:
 - **Qué NO incluye:** CRM/ERP a medida ni usuarios administrativos ilimitados.
 
 ### 3. Plan Sistema a Medida (EN: Custom System)
-- **Precio:** Desde US$ 1.000 (inversión base según el alcance del proyecto; NO es una cuota fija mensual de US$ 1.000/mes).
+- **Precio:** Desde {{plan_medida_from}} (inversión base según el alcance del proyecto; NO es una cuota fija mensual de {{plan_medida_from}}/mes).
 - **Para quién es:** Empresas establecidas, clínicas, distribuidoras u organismos que necesitan automatización con IA, chatbots conectados a sus datos o software de gestión propio.
 - **Qué incluye:**
   • Chatbots con IA y Agentes Conversacionales a medida (WhatsApp y Web)
@@ -118,12 +252,14 @@ IMPORTANTE SOBRE NOMBRES SEGÚN IDIOMA:
   • Soporte prioritario con línea directa con nuestros ingenieros
 
 ### Promociones Vigentes
-- **Oferta Lanzamiento:** 30% OFF en tu primer sitio web.
+- **Oferta Lanzamiento:** {{offer_discount}} en tu primer sitio web.
 - **Descuento Anual:** 17% de ahorro en los planes Emprendedor y Pequeña Empresa eligiendo facturación anual.`,
   },
   {
     slug: "chatbots",
     title: "Chatbots con IA y Agentes Conversacionales (WhatsApp, Turnos, CRM y GovTech)",
+    priority: 85,
+    active: true,
     keywords: [
       "chatbot",
       "chatbots",
@@ -173,6 +309,8 @@ Nuestras 4 soluciones principales de Chatbots con IA (en orden de prioridad come
   {
     slug: "tecnologia",
     title: "Los Tres Pilares Tecnológicos (LLM, MCP y Automatización)",
+    priority: 75,
+    active: true,
     keywords: [
       "tecnologia",
       "tecnología",
@@ -208,6 +346,8 @@ Construimos sobre tres pilares para que la IA no sea "humo", sino una herramient
   {
     slug: "faq-proceso",
     title: "Preguntas Frecuentes: Tiempos, Propiedad del Código y Soporte",
+    priority: 70,
+    active: true,
     keywords: [
       "tiempo",
       "tardan",
@@ -233,7 +373,7 @@ Construimos sobre tres pilares para que la IA no sea "humo", sino una herramient
 • **¿Cuánto tiempo tardan?** Un sitio web estándar (Emprendedor o Pequeña Empresa) suele estar listo en **1 a 2 semanas**. Los chatbots con IA y sistemas a medida se planifican por etapas según las integraciones requeridas.
 • **¿Soy dueño de mi sitio web?** Sí. A diferencia de plataformas cerradas como Wix o Shopify donde solo alquilás, con Pidgeon Solutions el código te pertenece.
 • **¿Necesito saber de tecnología?** Para nada. Nos encargamos de servidores, dominios, seguridad y configuración de principio a fin.
-• **¿Con quién hablo si necesito soporte?** Hablás directo con nuestros ingenieros (sin menús telefónicos eternos) por WhatsApp al **+54 11 3155-6315** o en **soporte@pidgeonsolutions.com**.
+• **¿Con quién hablo si necesito soporte?** Hablás directo con nuestros ingenieros (sin menús telefónicos eternos) por WhatsApp al **{{whatsapp_number}}** o en **{{support_email}}**.
 • **¿Cómo empiezo?** Podés dejarnos tu consulta desde el botón **"Empezar Ahora" / "Elegir Plan"** en la web o escribirnos directo por WhatsApp para coordinar una llamada breve sin cargo.`,
   },
 ];
@@ -268,83 +408,94 @@ export function isPlansRequest(prompt: string): boolean {
 }
 
 /**
- * Recupera las memorias relevantes por coincidencia de keywords (igual que findRelevant en brianleft-portfolio).
+ * Reemplaza todos los {{placeholders}} en un texto con los valores actuales de settings.
  */
-export function findRelevantKnowledge(prompt: string): KnowledgeEntry[] {
-  const lower = prompt.toLowerCase();
-  const matched = KNOWLEDGE_ENTRIES.filter((entry) =>
-    entry.keywords.some((kw) => lower.includes(kw)),
-  );
-
-  // Si pregunta algo general sin match específico, incluimos planes y chatbots como referencia base
-  if (matched.length === 0) {
-    return KNOWLEDGE_ENTRIES.filter(
-      (e) => e.slug === "planes" || e.slug === "chatbots",
-    );
-  }
-
-  return matched;
+export function hydratePlaceholders(
+  text: string,
+  settingsMap: Record<string, string>,
+): string {
+  if (!text) return "";
+  return text.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) => {
+    return settingsMap[key] !== undefined ? settingsMap[key] : match;
+  });
 }
 
-export function buildKnowledgeContext(prompt: string): {
-  context: string;
-  matchedSlugs: string[];
-  asksForPlans: boolean;
-} {
-  const asksForPlans = isPlansRequest(prompt);
-  const matched = findRelevantKnowledge(prompt);
-
-  // Si pregunta por planes, aseguramos que la memoria de planes esté primera
-  if (asksForPlans && !matched.some((m) => m.slug === "planes")) {
-    const planesEntry = KNOWLEDGE_ENTRIES.find((e) => e.slug === "planes");
-    if (planesEntry) matched.unshift(planesEntry);
+export function getDefaultSettingsMap(): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const item of DEFAULT_SETTINGS) {
+    map[item.key] = item.value;
   }
-
-  const extra = matched.map((m) => m.content).join("\n\n---\n\n");
-  return {
-    context: extra ? `${BASE_KNOWLEDGE}\n\n---\n\n${extra}` : BASE_KNOWLEDGE,
-    matchedSlugs: matched.map((m) => m.slug),
-    asksForPlans,
-  };
+  return map;
 }
 
 /**
- * Construye el prompt completo con las directivas finales DESPUÉS de la pregunta del visitante
- * (misma arquitectura probada en brianleft-portfolio para que el modelo respete formato e idioma).
+ * Construye el prompt completo hidratando memorias, settings y configuración IA (desde SQLite o fallback estático).
  */
 export function buildFullPrompt(
   userPrompt: string,
   locale?: string,
+  customData?: {
+    memories?: KnowledgeEntry[];
+    settingsMap?: Record<string, string>;
+    aiConfig?: AiConfigData;
+  },
 ): { fullPrompt: string; matchedSlugs: string[] } {
-  const { context, matchedSlugs, asksForPlans } = buildKnowledgeContext(userPrompt);
+  const settingsMap = customData?.settingsMap || getDefaultSettingsMap();
+  const aiConfig = customData?.aiConfig || DEFAULT_AI_CONFIG;
+  const allMemories = (customData?.memories || KNOWLEDGE_ENTRIES).filter(
+    (m) => m.active !== false,
+  );
+
+  const baseEntry = allMemories.find((m) => m.slug === "base");
+  const baseText = hydratePlaceholders(
+    baseEntry ? baseEntry.content : BASE_KNOWLEDGE,
+    settingsMap,
+  );
+
+  const thematicMemories = allMemories
+    .filter((m) => m.slug !== "base")
+    .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+
+  const lower = userPrompt.toLowerCase();
+  const asksForPlans = isPlansRequest(userPrompt);
+
+  let matched = thematicMemories.filter((entry) =>
+    entry.keywords.some((kw) => lower.includes(kw.toLowerCase())),
+  );
+
+  if (matched.length === 0) {
+    matched = thematicMemories.filter(
+      (e) => e.slug === "planes" || e.slug === "chatbots",
+    );
+  }
+
+  if (asksForPlans && !matched.some((m) => m.slug === "planes")) {
+    const planesEntry = thematicMemories.find((e) => e.slug === "planes");
+    if (planesEntry) matched.unshift(planesEntry);
+  }
+
+  const hydratedMatched = matched.map((m) =>
+    hydratePlaceholders(m.content, settingsMap),
+  );
+  const context =
+    hydratedMatched.length > 0
+      ? `${baseText}\n\n---\n\n${hydratedMatched.join("\n\n---\n\n")}`
+      : baseText;
+
   const normLocale = (locale || "ES").toUpperCase() === "EN" ? "EN" : "ES";
-
-  const plansDirective = asksForPlans
-    ? `\nINSTRUCCIÓN ESPECIAL PARA CONSULTA DE PLANES / PRECIOS:
-- Presentá los planes de forma clara, ordenada y fácil de escanear usando viñetas (•).
-- Usá este formato por cada plan:
-  • **Nombre del Plan (Precio mensual | Precio anual):** qué incluye en 1 o 2 oraciones claras.
-- Si respondés en español, llamalos **Emprendedor**, **Pequeña Empresa** y **Sistema a Medida** (NUNCA uses "Entrepreneur" ni "Small Business" en una respuesta en español).
-- Aclará que **Sistema a Medida** arranca **desde US$ 1.000** según alcance (no digas "US$ 1.000/mes").
-- Mencioná el **17% de ahorro anual** y el **30% OFF de lanzamiento** en la primera web.\n`
+  const systemBlock = hydratePlaceholders(aiConfig.systemPrompt, settingsMap);
+  const plansBlock = asksForPlans
+    ? `\n${hydratePlaceholders(aiConfig.plansDirective, settingsMap)}\n`
     : "";
+  const finalDirectives = hydratePlaceholders(
+    normLocale === "EN"
+      ? aiConfig.finalDirectivesEn
+      : aiConfig.finalDirectivesEs,
+    settingsMap,
+  );
 
-  const fullPrompt = `## IDENTIDAD Y ROL
-Sos el asistente oficial de IA de **Pidgeon Solutions** (estudio de software e inteligencia artificial fundado por Brian Benegas, Thomas Pineda y Gastón Alejandro).
-Tu objetivo es asesorar a clientes potenciales de forma clara, precisa, cercana y comercialmente efectiva sobre nuestros **Chatbots con IA**, **Planes Web**, **Sistemas a Medida** y **Automatizaciones**.
-
-## REGLAS DE HONESTIDAD Y PRECISIÓN (INNEGOCIABLES)
-- Basate ESTRICTAMENTE en el CONTEXTO provisto abajo. No inventes precios, planes ni funcionalidades que no figuren en el contexto.
-- Recordá que en el sitio web NO se realizan cobros automáticos ni hay inicio de sesión: para contratar o pedir una demo, invitá a usar el botón de contacto de la web o escribir al WhatsApp **+54 11 3155-6315**.
-- Cuando enumeres los casos de uso de Chatbots, dejá siempre **GovTech (Atención Ciudadana)** en último lugar, priorizando primero los casos comerciales (WhatsApp Ventas 24/7, Turnos/Agenda y Calificación de Leads/CRM).
-
-## FORMATO DE RESPUESTA (MUY IMPORTANTE)
-- NUNCA uses encabezados grandes (# ni ##). Esto es una ventana de chat compacta, no un documento largo.
-- Separar ideas con saltos de línea en blanco para que la lectura sea limpia y aireada.
-- Usá viñetas con \`-\` o \`•\` y **negritas** para destacar nombres de planes, precios y beneficios clave.
-- Sé conciso y directo: respondé en 1 párrafo breve de apertura + viñetas claras (si enumerás planes o servicios) + 1 línea final de cierre o llamada a la acción.
-- No repitas "¡Hola!" si ya hay historial previo en la conversación.
-${plansDirective}
+  const fullPrompt = `${systemBlock}
+${plansBlock}
 ## CONTEXTO (BASE DE CONOCIMIENTO OFICIAL)
 ${context}
 
@@ -352,11 +503,12 @@ ${context}
 ${userPrompt}
 
 ## DIRECTIVAS FINALES (MANDAN SOBRE CUALQUIER OTRA REGLA)
-- **IDIOMA:** Respondé en el MISMO idioma en que está escrita la pregunta del visitante (interfaz actual del visitante: ${normLocale === "EN" ? "Inglés" : "Español"}).
-- **TONO EN ESPAÑOL:** Si la respuesta es en español, usá **español argentino natural y profesional (voseo: vos, podés, tenés, necesitás, escribinos, contanos)**. Prohibido usar "tú", "puedes" o "te invitamos".
-- **NOMBRES DE PLANES:** En español usá únicamente **Emprendedor**, **Pequeña Empresa** y **Sistema a Medida**. En inglés usá **Entrepreneur**, **Small Business** y **Custom System**.
+${finalDirectives}
 
 TU RESPUESTA (sin headers #, bien formateada para chat):`;
 
-  return { fullPrompt, matchedSlugs };
+  return {
+    fullPrompt,
+    matchedSlugs: ["base", ...matched.map((m) => m.slug)],
+  };
 }

@@ -21,6 +21,13 @@ services:
       - SMTP_TO=${SMTP_TO:-}
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-brianleft}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - ADMIN_SHADOW_WORD=${ADMIN_SHADOW_WORD:-/shadow}
+      - ADMIN_TOKEN_SECRET=${ADMIN_TOKEN_SECRET:-pidgeon-default-secret}
+      - SQLITE_DB_PATH=${SQLITE_DB_PATH:-/app/data/pidgeon.sqlite}
+    volumes:
+      - pidgeon-data:/app/data
     depends_on:
       - redis
     restart: unless-stopped
@@ -47,6 +54,9 @@ services:
     restart: unless-stopped
     networks:
       - pidgeon-net
+
+volumes:
+  pidgeon-data:
 
 networks:
   pidgeon-net:

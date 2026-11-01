@@ -38,8 +38,10 @@ export interface ClientLeadItem {
   plan: string;
   status: "LEAD" | "CONTACTED" | "DEMO" | "ACTIVE" | "PAUSED";
   notes: string;
+  assignedTo: string;
   source: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 @Injectable()
@@ -128,11 +130,20 @@ export class AdminDbService implements OnModuleInit {
         plan TEXT NOT NULL DEFAULT 'General',
         status TEXT NOT NULL DEFAULT 'LEAD',
         notes TEXT NOT NULL DEFAULT '',
+        assigned_to TEXT NOT NULL DEFAULT '',
         source TEXT NOT NULL DEFAULT 'CONTACT_FORM',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
     `);
+
+    try {
+      this.db.exec(
+        "ALTER TABLE clients ADD COLUMN assigned_to TEXT NOT NULL DEFAULT '';",
+      );
+    } catch {
+      // Column already exists
+    }
   }
 
   public hashPassword(password: string, salt?: string): string {
@@ -191,7 +202,7 @@ export class AdminDbService implements OnModuleInit {
         );
     }
 
-    // Sembrar socios base (Thomas y Gastón) en Etapa 3 listos (inactivos hasta asignar clave propia)
+    // Sembrar socios base (Thomas Pineda y Gastón Alejandro) en Etapa 3
     const partners = [
       {
         username: "thomas",
@@ -281,7 +292,7 @@ export class AdminDbService implements OnModuleInit {
     }
   }
 
-  // --- Users & Auth ---
+  // --- Users & Auth (Etapa 3 RBAC) ---
   validateUserCredentials(
     username: string,
     password: string,
@@ -333,6 +344,104 @@ export class AdminDbService implements OnModuleInit {
       active: Boolean(row.active),
       createdAt: row.created_at,
     }));
+  }
+
+  upsertUser(data: {
+    username: string;
+    displayName: string;
+    email: string;
+    role?: AdminUserItem["role"];
+    active?: boolean;
+    password?: string;
+  }): AdminUserItem[] {
+    const cleanUsername = (data.username || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]/g, "");
+    if (!cleanUsername) return this.getAllUsers();
+
+    const validRoles: AdminUserItem["role"][] = [
+      "SUPERADMIN",
+      "PARTNER",
+      "SALES",
+      "VIEWER",
+    ];
+    const role: AdminUserItem["role"] = validRoles.includes(
+      data.role as AdminUserItem["role"],
+    )
+      ? (data.role as AdminUserItem["role"])
+      : "PARTNER";
+
+    const displayName = (data.displayName || cleanUsername).trim();
+    const email = (
+      data.email || `${cleanUsername}@pidgeonsolutions.com`
+    ).trim();
+    const isMainSuperadmin = cleanUsername === "brianleft";
+    const activeInt = isMainSuperadmin ? 1 : data.active !== false ? 1 : 0;
+    const effectiveRole: AdminUserItem["role"] = isMainSuperadmin
+      ? "SUPERADMIN"
+      : role;
+    const now = new Date().toISOString();
+
+    const existing = this.db
+      .prepare("SELECT * FROM users WHERE username = ?")
+      .get(cleanUsername);
+
+    if (existing) {
+      const nextHash =
+        data.password && data.password.trim().length > 0
+          ? this.hashPassword(data.password.trim())
+          : existing.password_hash;
+
+      this.db
+        .prepare(
+          `UPDATE users
+           SET display_name = ?, email = ?, password_hash = ?, role = ?, active = ?, updated_at = ?
+           WHERE username = ?`,
+        )
+        .run(
+          displayName,
+          email,
+          nextHash,
+          effectiveRole,
+          activeInt,
+          now,
+          cleanUsername,
+        );
+    } else {
+      const defaultPass =
+        data.password && data.password.trim().length > 0
+          ? data.password.trim()
+          : process.env.ADMIN_PASSWORD || "123merlogomes123";
+      const passwordHash = this.hashPassword(defaultPass);
+
+      this.db
+        .prepare(
+          `INSERT INTO users (username, display_name, email, password_hash, role, active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          cleanUsername,
+          displayName,
+          email,
+          passwordHash,
+          effectiveRole,
+          activeInt,
+          now,
+          now,
+        );
+    }
+
+    return this.getAllUsers();
+  }
+
+  deleteUser(username: string): AdminUserItem[] {
+    const clean = (username || "").trim().toLowerCase();
+    if (!clean || clean === "brianleft") {
+      return this.getAllUsers();
+    }
+    this.db.prepare("DELETE FROM users WHERE username = ?").run(clean);
+    return this.getAllUsers();
   }
 
   // --- Settings (Placeholders) ---
@@ -484,7 +593,6 @@ export class AdminDbService implements OnModuleInit {
 
   deleteMemory(slug: string): KnowledgeEntry[] {
     if (slug === "base") {
-      // No borrar la memoria base principal
       return this.getMemories();
     }
     this.db.prepare("DELETE FROM memories WHERE slug = ?").run(slug);
@@ -560,10 +668,10 @@ export class AdminDbService implements OnModuleInit {
     return this.getShadowbans();
   }
 
-  // --- Clients & Leads (Cimiento Etapa 3) ---
+  // --- Clients & Leads (Etapa 3: Catálogo de Clientes & Mini-CRM) ---
   getClients(): ClientLeadItem[] {
     const rows = this.db
-      .prepare("SELECT * FROM clients ORDER BY created_at DESC LIMIT 100")
+      .prepare("SELECT * FROM clients ORDER BY updated_at DESC, id DESC LIMIT 200")
       .all();
     return rows.map((r: any) => ({
       id: r.id,
@@ -574,9 +682,98 @@ export class AdminDbService implements OnModuleInit {
       plan: r.plan,
       status: r.status,
       notes: r.notes,
+      assignedTo: r.assigned_to || "",
       source: r.source,
       createdAt: r.created_at,
+      updatedAt: r.updated_at || r.created_at,
     }));
+  }
+
+  upsertClient(data: {
+    id?: number;
+    name: string;
+    company?: string;
+    email?: string;
+    phone?: string;
+    plan?: string;
+    status?: ClientLeadItem["status"];
+    notes?: string;
+    assignedTo?: string;
+    source?: string;
+  }): ClientLeadItem[] {
+    const name = (data.name || "").trim();
+    if (!name) return this.getClients();
+
+    const validStatuses: ClientLeadItem["status"][] = [
+      "LEAD",
+      "CONTACTED",
+      "DEMO",
+      "ACTIVE",
+      "PAUSED",
+    ];
+    const status: ClientLeadItem["status"] = validStatuses.includes(
+      data.status as ClientLeadItem["status"],
+    )
+      ? (data.status as ClientLeadItem["status"])
+      : "LEAD";
+
+    const company = (data.company || "").trim();
+    const email = (data.email || "").trim();
+    const phone = (data.phone || "").trim();
+    const plan = (data.plan || "General").trim();
+    const notes = (data.notes || "").trim();
+    const assignedTo = (data.assignedTo || "").trim().toLowerCase();
+    const source = (data.source || "BACKOFFICE").trim();
+    const now = new Date().toISOString();
+
+    if (data.id && Number(data.id) > 0) {
+      this.db
+        .prepare(
+          `UPDATE clients
+           SET name = ?, company = ?, email = ?, phone = ?, plan = ?, status = ?, notes = ?, assigned_to = ?, updated_at = ?
+           WHERE id = ?`,
+        )
+        .run(
+          name,
+          company,
+          email,
+          phone,
+          plan,
+          status,
+          notes,
+          assignedTo,
+          now,
+          Number(data.id),
+        );
+    } else {
+      this.db
+        .prepare(
+          `INSERT INTO clients (name, company, email, phone, plan, status, notes, assigned_to, source, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          name,
+          company,
+          email,
+          phone,
+          plan,
+          status,
+          notes,
+          assignedTo,
+          source,
+          now,
+          now,
+        );
+    }
+
+    return this.getClients();
+  }
+
+  deleteClient(id: number): ClientLeadItem[] {
+    const cleanId = Number(id);
+    if (!cleanId || cleanId <= 0) return this.getClients();
+    this.db.prepare("DELETE FROM clients WHERE id = ?").run(cleanId);
+    return this.getClients();
   }
 
   recordContactLead(data: {
@@ -589,8 +786,8 @@ export class AdminDbService implements OnModuleInit {
     const now = new Date().toISOString();
     this.db
       .prepare(
-        `INSERT INTO clients (name, company, email, phone, plan, status, notes, source, created_at, updated_at)
-         VALUES (?, ?, ?, '', ?, 'LEAD', ?, 'CONTACT_FORM', ?, ?)`,
+        `INSERT INTO clients (name, company, email, phone, plan, status, notes, assigned_to, source, created_at, updated_at)
+         VALUES (?, ?, ?, '', ?, 'LEAD', ?, '', 'CONTACT_FORM', ?, ?)`,
       )
       .run(
         data.name || "Sin nombre",

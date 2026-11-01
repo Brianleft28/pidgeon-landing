@@ -35,15 +35,19 @@
     createdAt: string;
   };
 
+  type UserRole = 'SUPERADMIN' | 'PARTNER' | 'SALES' | 'VIEWER';
+
   type AdminUserItem = {
     id: number;
     username: string;
     displayName: string;
     email: string;
-    role: string;
+    role: UserRole;
     active: boolean;
     createdAt: string;
   };
+
+  type ClientStatus = 'LEAD' | 'CONTACTED' | 'DEMO' | 'ACTIVE' | 'PAUSED';
 
   type ClientLeadItem = {
     id: number;
@@ -52,10 +56,12 @@
     email: string;
     phone: string;
     plan: string;
-    status: string;
+    status: ClientStatus;
     notes: string;
+    assignedTo: string;
     source: string;
     createdAt: string;
+    updatedAt?: string;
   };
 
   let {
@@ -115,6 +121,33 @@
   );
   let sbFakeEn = $state(
     'Thank you for your inquiry. Our specialists are currently reviewing requests; please leave your details in the contact form.'
+  );
+
+  // Etapa 3: User / Partner form state (Thomas Pineda & Gastón Alejandro)
+  let isEditingUser = $state(false);
+  let usrUsername = $state('thomas');
+  let usrDisplayName = $state('Thomas Pineda');
+  let usrEmail = $state('thomas@pidgeonsolutions.com');
+  let usrRole = $state<UserRole>('PARTNER');
+  let usrActive = $state(true);
+  let usrPassword = $state('');
+
+  // Etapa 3: Client / Lead form state
+  let cliId = $state<number | undefined>(undefined);
+  let cliName = $state('');
+  let cliCompany = $state('');
+  let cliEmail = $state('');
+  let cliPhone = $state('');
+  let cliPlan = $state('Pequeña Empresa');
+  let cliStatus = $state<ClientStatus>('LEAD');
+  let cliAssignedTo = $state('brianleft');
+  let cliNotes = $state('');
+  let clientStatusFilter = $state<'ALL' | ClientStatus>('ALL');
+
+  let filteredClients = $derived(
+    clientStatusFilter === 'ALL'
+      ? clients
+      : clients.filter((c) => c.status === clientStatusFilter)
   );
 
   function showToast(msg: string, type: 'ok' | 'err' = 'ok') {
@@ -340,6 +373,188 @@
     }
   }
 
+  // --- Etapa 3: Funciones de Socios & Roles Internos (RBAC) ---
+  function loadPartnerPreset(preset: 'thomas' | 'gaston' | 'new') {
+    if (preset === 'thomas') {
+      const existing = users.find((u) => u.username === 'thomas');
+      isEditingUser = Boolean(existing);
+      usrUsername = 'thomas';
+      usrDisplayName = existing?.displayName || 'Thomas Pineda';
+      usrEmail = existing?.email || 'thomas@pidgeonsolutions.com';
+      usrRole = existing?.role || 'PARTNER';
+      usrActive = existing ? existing.active : true;
+      usrPassword = '';
+    } else if (preset === 'gaston') {
+      const existing = users.find((u) => u.username === 'gaston');
+      isEditingUser = Boolean(existing);
+      usrUsername = 'gaston';
+      usrDisplayName = existing?.displayName || 'Gastón Alejandro';
+      usrEmail = existing?.email || 'gaston@pidgeonsolutions.com';
+      usrRole = existing?.role || 'PARTNER';
+      usrActive = existing ? existing.active : true;
+      usrPassword = '';
+    } else {
+      isEditingUser = false;
+      usrUsername = '';
+      usrDisplayName = '';
+      usrEmail = '';
+      usrRole = 'PARTNER';
+      usrActive = true;
+      usrPassword = '';
+    }
+  }
+
+  function selectUserForEdit(u: AdminUserItem) {
+    isEditingUser = true;
+    usrUsername = u.username;
+    usrDisplayName = u.displayName;
+    usrEmail = u.email;
+    usrRole = u.role;
+    usrActive = u.active;
+    usrPassword = '';
+  }
+
+  async function saveUser(e: SubmitEvent) {
+    e.preventDefault();
+    if (!usrUsername.trim() || !usrDisplayName.trim()) {
+      showToast('Completá usuario y nombre visible del socio', 'err');
+      return;
+    }
+    saving = true;
+    try {
+      const res = await fetch(`${apiUrl}/admin/users`, {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+          username: usrUsername.trim().toLowerCase(),
+          displayName: usrDisplayName.trim(),
+          email: usrEmail.trim(),
+          role: usrRole,
+          active: usrActive,
+          password: usrPassword.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Error guardando usuario');
+      }
+      const data = await res.json();
+      users = data.users || [];
+      usrPassword = '';
+      isEditingUser = true;
+      showToast(`Socio / usuario @${usrUsername.trim().toLowerCase()} guardado en SQLite`);
+    } catch (err: any) {
+      showToast(err?.message || 'Error al guardar el usuario', 'err');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function removeUser(username: string) {
+    if (username === 'brianleft') return;
+    saving = true;
+    try {
+      const res = await fetch(`${apiUrl}/admin/users/${encodeURIComponent(username)}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('No se pudo eliminar el usuario');
+      const data = await res.json();
+      users = data.users || [];
+      showToast(`Usuario @${username} eliminado`);
+    } catch {
+      showToast('Error al eliminar usuario', 'err');
+    } finally {
+      saving = false;
+    }
+  }
+
+  // --- Etapa 3: Funciones de Catálogo de Clientes & Leads ---
+  function resetClientForm() {
+    cliId = undefined;
+    cliName = '';
+    cliCompany = '';
+    cliEmail = '';
+    cliPhone = '';
+    cliPlan = 'Pequeña Empresa';
+    cliStatus = 'LEAD';
+    cliAssignedTo = currentUser?.username || 'brianleft';
+    cliNotes = '';
+  }
+
+  function selectClientForEdit(c: ClientLeadItem) {
+    cliId = c.id;
+    cliName = c.name;
+    cliCompany = c.company || '';
+    cliEmail = c.email || '';
+    cliPhone = c.phone || '';
+    cliPlan = c.plan || 'General';
+    cliStatus = c.status || 'LEAD';
+    cliAssignedTo = c.assignedTo || 'brianleft';
+    cliNotes = c.notes || '';
+  }
+
+  async function saveClient(e: SubmitEvent) {
+    e.preventDefault();
+    if (!cliName.trim()) {
+      showToast('El nombre del cliente o lead es obligatorio', 'err');
+      return;
+    }
+    saving = true;
+    try {
+      const url = cliId ? `${apiUrl}/admin/clients/${cliId}` : `${apiUrl}/admin/clients`;
+      const method = cliId ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+          id: cliId,
+          name: cliName.trim(),
+          company: cliCompany.trim(),
+          email: cliEmail.trim(),
+          phone: cliPhone.trim(),
+          plan: cliPlan.trim(),
+          status: cliStatus,
+          assignedTo: cliAssignedTo.trim(),
+          notes: cliNotes.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error('Error guardando cliente');
+      const data = await res.json();
+      clients = data.clients || [];
+      const wasEdit = Boolean(cliId);
+      resetClientForm();
+      showToast(wasEdit ? 'Ficha de cliente actualizada' : 'Nuevo cliente registrado en el catálogo');
+    } catch {
+      showToast('Error al guardar el cliente', 'err');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function removeClient(id: number) {
+    saving = true;
+    try {
+      const res = await fetch(`${apiUrl}/admin/clients/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Error eliminando cliente');
+      const data = await res.json();
+      clients = data.clients || [];
+      if (cliId === id) resetClientForm();
+      showToast('Cliente eliminado del catálogo');
+    } catch {
+      showToast('No se pudo eliminar el cliente', 'err');
+    } finally {
+      saving = false;
+    }
+  }
+
   $effect(() => {
     if (isOpen) {
       loadBackofficeState();
@@ -405,7 +620,7 @@
           onclick={() => (activeTab = 'roadmap')}
           class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer {activeTab === 'roadmap' ? 'bg-cyan-400 text-slate-950' : 'text-slate-400 hover:text-white'}"
         >
-          🗺️ Planroad & Clientes
+          👥 Socios & Clientes ({clients.length})
         </button>
       </div>
 
@@ -660,23 +875,23 @@
           <div>
             <label class="block text-xs font-mono text-slate-400 mb-1">
               System Prompt Principal (Identidad, Reglas y Formato)
-              <textarea
-                rows="8"
-                bind:value={aiConfig.systemPrompt}
-                class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono leading-relaxed"
-              ></textarea>
             </label>
+            <textarea
+              rows="8"
+              bind:value={aiConfig.systemPrompt}
+              class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono leading-relaxed"
+            ></textarea>
           </div>
 
           <div>
             <label class="block text-xs font-mono text-slate-400 mb-1">
               Directiva Especial cuando preguntan por Planes / Precios
-              <textarea
-                rows="5"
-                bind:value={aiConfig.plansDirective}
-                class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono leading-relaxed"
-              ></textarea>
             </label>
+            <textarea
+              rows="5"
+              bind:value={aiConfig.plansDirective}
+              class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono leading-relaxed"
+            ></textarea>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -847,8 +1062,8 @@
         </div>
 
       {:else if activeTab === 'roadmap'}
-        <!-- TAB 5: PLANROAD & PREVIEW ETAPA 3 (CLIENTES Y ROLES) -->
-        <div class="max-w-6xl mx-auto space-y-6">
+        <!-- TAB 5: ETAPA 3 ACTIVA (SOCIOS RBAC, CLIENTES MINI-CRM & PLANROAD) -->
+        <div class="max-w-7xl mx-auto space-y-6">
           <!-- Roadmap Cards -->
           <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
@@ -863,7 +1078,7 @@
 
             <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
               <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500 text-slate-950 font-bold">
-                Etapa 2 · Activa Hoy
+                Etapa 2 · Completada
               </span>
               <h4 class="text-sm font-bold text-white mt-2">Backoffice Oculto & Shadow Word</h4>
               <p class="text-xs text-slate-400 mt-1">
@@ -871,13 +1086,13 @@
               </p>
             </div>
 
-            <div class="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30">
-              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-400 text-slate-950 font-bold">
-                Etapa 3 · Base Creada
+            <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500 text-slate-950 font-bold">
+                Etapa 3 · Activa Hoy
               </span>
-              <h4 class="text-sm font-bold text-white mt-2">Catálogo de Clientes & Roles RBAC</h4>
+              <h4 class="text-sm font-bold text-white mt-2">Socios RBAC & Catálogo Mini-CRM</h4>
               <p class="text-xs text-slate-400 mt-1">
-                Tablas <code class="text-cyan-300">users</code> y <code class="text-cyan-300">clients</code> ya operativas en SQLite. Captura automática de Leads del formulario web.
+                Alta y gestión de <strong>Thomas Pineda</strong> y <strong>Gastón Alejandro</strong> (<code class="text-emerald-300">PARTNER</code>), roles RBAC y seguimiento de Clientes/Leads.
               </p>
             </div>
 
@@ -893,49 +1108,371 @@
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <!-- Usuarios & Roles Registrados (Cimiento Etapa 3) -->
-            <div class="lg:col-span-5 bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-3">
-              <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                👥 Usuarios & Roles Internos (Etapa 3)
-              </h3>
+            <!-- COLUMNA IZQUIERDA (5 cols): ALTA Y GESTIÓN DE SOCIOS (THOMAS PINEDA & GASTÓN ALEJANDRO) -->
+            <div class="lg:col-span-5 bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <div>
+                  <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                    👥 Socios & Roles Internos (RBAC)
+                  </h3>
+                  <p class="text-[11px] text-slate-400">
+                    Habilitá o actualizá las credenciales de acceso a <code class="text-emerald-400">/shadow</code> para los socios.
+                  </p>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onclick={() => loadPartnerPreset('thomas')}
+                    class="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-mono cursor-pointer"
+                  >
+                    ⚡ Thomas Pineda
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => loadPartnerPreset('gaston')}
+                    class="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-mono cursor-pointer"
+                  >
+                    ⚡ Gastón Alejandro
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => loadPartnerPreset('new')}
+                    class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono cursor-pointer"
+                  >
+                    + Nuevo
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulario ABM Socio / Usuario -->
+              <form onsubmit={saveUser} class="bg-slate-950/80 border border-slate-800/90 rounded-xl p-4 space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Usuario (@login)
+                      <input
+                        type="text"
+                        bind:value={usrUsername}
+                        placeholder="ej. thomas"
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Nombre y Apellido
+                      <input
+                        type="text"
+                        bind:value={usrDisplayName}
+                        placeholder="ej. Thomas Pineda"
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Email corporativo
+                      <input
+                        type="email"
+                        bind:value={usrEmail}
+                        placeholder="thomas@pidgeonsolutions.com"
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Rol RBAC
+                      <select
+                        bind:value={usrRole}
+                        disabled={usrUsername === 'brianleft'}
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-cyan-300 font-mono"
+                      >
+                        <option value="SUPERADMIN">SUPERADMIN</option>
+                        <option value="PARTNER">PARTNER (Socio)</option>
+                        <option value="SALES">SALES (Comercial)</option>
+                        <option value="VIEWER">VIEWER (Lectura)</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div class="sm:col-span-8">
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Contraseña {isEditingUser ? '(vacío = mantener actual)' : '(obligatoria o usa default)'}
+                      <input
+                        type="password"
+                        bind:value={usrPassword}
+                        placeholder="••••••••••••"
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                    </label>
+                  </div>
+                  <div class="sm:col-span-4 pb-1.5">
+                    <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        bind:checked={usrActive}
+                        disabled={usrUsername === 'brianleft'}
+                        class="accent-emerald-500"
+                      />
+                      Cuenta Activa
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  class="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold uppercase tracking-wider cursor-pointer disabled:opacity-50"
+                >
+                  {saving ? 'Guardando...' : `Guardar Socio / Usuario (@${usrUsername || 'nuevo'})`}
+                </button>
+              </form>
+
+              <!-- Lista de Socios Registrados -->
               <div class="space-y-2">
                 {#each users as u (u.username)}
-                  <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+                  <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between gap-2">
                     <div>
-                      <p class="text-xs font-bold text-white">{u.displayName}</p>
-                      <p class="text-[11px] font-mono text-slate-400">@{u.username} · {u.email}</p>
+                      <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full {u.active ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
+                        <p class="text-xs font-bold text-white">{u.displayName}</p>
+                        <span class="px-2 py-0.5 text-[10px] font-mono rounded border {u.role === 'SUPERADMIN' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'}">
+                          {u.role}
+                        </span>
+                      </div>
+                      <p class="text-[11px] font-mono text-slate-400 mt-0.5">@{u.username} · {u.email}</p>
                     </div>
-                    <span class="px-2 py-0.5 text-[10px] font-mono rounded border {u.role === 'SUPERADMIN' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'}">
-                      {u.role}
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onclick={() => selectUserForEdit(u)}
+                        class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-mono cursor-pointer"
+                      >
+                        Editar
+                      </button>
+                      {#if u.username !== 'brianleft' && currentUser?.role === 'SUPERADMIN'}
+                        <button
+                          type="button"
+                          onclick={() => removeUser(u.username)}
+                          class="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-mono cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      {/if}
+                    </div>
                   </div>
                 {/each}
               </div>
             </div>
 
-            <!-- Catálogo de Clientes / Leads Capturados -->
-            <div class="lg:col-span-7 bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-3">
-              <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                📋 Catálogo de Clientes & Leads Recientes ({clients.length})
-              </h3>
-              {#if clients.length === 0}
+            <!-- COLUMNA DERECHA (7 cols): CATÁLOGO DE CLIENTES & LEADS (MINI-CRM) -->
+            <div class="lg:col-span-7 bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <div>
+                  <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                    📋 Catálogo de Clientes & Leads ({clients.length})
+                  </h3>
+                  <p class="text-[11px] text-slate-400">
+                    Seguimiento comercial unificado para Brian, Thomas y Gastón.
+                  </p>
+                </div>
+                {#if cliId}
+                  <button
+                    type="button"
+                    onclick={resetClientForm}
+                    class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-mono cursor-pointer"
+                  >
+                    + Crear Nuevo Cliente
+                  </button>
+                {/if}
+              </div>
+
+              <!-- Formulario ABM Cliente / Lead -->
+              <form onsubmit={saveClient} class="bg-slate-950/80 border border-slate-800/90 rounded-xl p-4 space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Nombre de Contacto *
+                      <input
+                        type="text"
+                        bind:value={cliName}
+                        placeholder="ej. Martín Gómez"
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Empresa / Organización
+                      <input
+                        type="text"
+                        bind:value={cliCompany}
+                        placeholder="ej. Clínica San Lucas"
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Email
+                      <input
+                        type="email"
+                        bind:value={cliEmail}
+                        placeholder="contacto@empresa.com"
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      WhatsApp / Teléfono
+                      <input
+                        type="text"
+                        bind:value={cliPhone}
+                        placeholder="+54 9 11 ..."
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Plan / Solución
+                      <select
+                        bind:value={cliPlan}
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      >
+                        <option value="Emprendedor">Emprendedor</option>
+                        <option value="Pequeña Empresa">Pequeña Empresa</option>
+                        <option value="Sistema a Medida">Sistema a Medida</option>
+                        <option value="Chatbot IA">Chatbot IA</option>
+                        <option value="GovTech">GovTech</option>
+                        <option value="Consulta Web">Consulta Web</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Estado Comercial
+                      <select
+                        bind:value={cliStatus}
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-amber-300 font-mono"
+                      >
+                        <option value="LEAD">LEAD</option>
+                        <option value="CONTACTED">CONTACTED</option>
+                        <option value="DEMO">DEMO</option>
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="PAUSED">PAUSED</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                      Socio Responsable
+                      <select
+                        bind:value={cliAssignedTo}
+                        class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-cyan-300 font-mono"
+                      >
+                        <option value="">Sin asignar</option>
+                        {#each users as u (u.username)}
+                          <option value={u.username}>@{u.username} ({u.displayName})</option>
+                        {/each}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-mono text-slate-400 mb-1">
+                    Notas de seguimiento / Requerimientos
+                    <textarea
+                      rows="2"
+                      bind:value={cliNotes}
+                      placeholder="Resumen del proyecto, presupuesto estimado o próximos pasos..."
+                      class="mt-1 w-full bg-slate-900 border border-slate-700/80 rounded-lg p-2 text-xs text-slate-200"
+                    ></textarea>
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  class="w-full py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-bold uppercase tracking-wider cursor-pointer disabled:opacity-50"
+                >
+                  {saving ? 'Guardando...' : cliId ? `Actualizar Cliente #${cliId}` : 'Registrar Cliente / Lead'}
+                </button>
+              </form>
+
+              <!-- Filtros de Estado -->
+              <div class="flex flex-wrap items-center gap-1.5">
+                {#each ['ALL', 'LEAD', 'CONTACTED', 'DEMO', 'ACTIVE', 'PAUSED'] as st}
+                  <button
+                    type="button"
+                    onclick={() => (clientStatusFilter = st as any)}
+                    class="px-2.5 py-1 rounded-lg text-[11px] font-mono cursor-pointer transition-all {clientStatusFilter === st ? 'bg-cyan-400 text-slate-950 font-bold' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'}"
+                  >
+                    {st === 'ALL' ? `TODOS (${clients.length})` : st}
+                  </button>
+                {/each}
+              </div>
+
+              <!-- Listado de Clientes -->
+              {#if filteredClients.length === 0}
                 <div class="p-8 text-center text-xs font-mono text-slate-500 border border-dashed border-slate-800 rounded-xl">
-                  Todavía no ingresaron consultas por el formulario de contacto. Cada nuevo contacto se guardará acá automáticamente como LEAD.
+                  No hay clientes ni leads para este filtro. Podés cargarlos arriba o recibirlos desde el formulario web.
                 </div>
               {:else}
-                <div class="space-y-2">
-                  {#each clients as c (c.id)}
-                    <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-start justify-between gap-3">
-                      <div>
-                        <p class="text-xs font-bold text-white">
-                          {c.name} {c.company ? `· ${c.company}` : ''}
+                <div class="space-y-2 max-h-80 overflow-y-auto pr-1">
+                  {#each filteredClients as c (c.id)}
+                    <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div class="space-y-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <p class="text-xs font-bold text-white">
+                            {c.name} {c.company ? `· ${c.company}` : ''}
+                          </p>
+                          <span class="px-2 py-0.5 text-[10px] font-mono rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            {c.status}
+                          </span>
+                          <span class="px-2 py-0.5 text-[10px] font-mono rounded bg-slate-800 text-slate-300">
+                            {c.plan}
+                          </span>
+                          {#if c.assignedTo}
+                            <span class="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                              @{c.assignedTo}
+                            </span>
+                          {/if}
+                        </div>
+                        <p class="text-[11px] font-mono text-emerald-400">
+                          {c.email || 'sin email'} {c.phone ? `· ${c.phone}` : ''}
                         </p>
-                        <p class="text-[11px] font-mono text-emerald-400">{c.email}</p>
-                        <p class="text-xs text-slate-400 mt-1">{c.notes}</p>
+                        {#if c.notes}
+                          <p class="text-xs text-slate-400">{c.notes}</p>
+                        {/if}
                       </div>
-                      <span class="px-2 py-0.5 text-[10px] font-mono rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                        {c.status}
-                      </span>
+                      <div class="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onclick={() => selectClientForEdit(c)}
+                          class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-mono cursor-pointer"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onclick={() => removeClient(c.id)}
+                          class="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-mono cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                   {/each}
                 </div>

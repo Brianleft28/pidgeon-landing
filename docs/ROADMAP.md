@@ -9,7 +9,7 @@ Este documento define la evolución por etapas de la plataforma de **Pidgeon Sol
 ```mermaid
 flowchart LR
     E1["Etapa 1 ✅<br/>Landing + Carrusel IA<br/>Streaming Chunks + Mini-RAG"] --> E2["Etapa 2 ✅<br/>Backoffice Oculto + Shadow Word<br/>Parametrización IA + Shadowban"]
-    E2 --> E3["Etapa 3 📋<br/>Catálogo de Clientes (Mini-CRM)<br/>Usuarios Internos y Roles (RBAC)"]
+    E2 --> E3["Etapa 3 ✅<br/>Catálogo de Clientes (Mini-CRM)<br/>Usuarios Internos y Roles (RBAC)"]
     E3 --> E4["Etapa 4 🚀<br/>Auditoría de Conversaciones<br/>Plantillas Multi-Bot por Cliente"]
 ```
 
@@ -39,27 +39,27 @@ flowchart LR
 
 ---
 
-## Etapa 3: Catálogo de Clientes (Mini-CRM), Usuarios Internos y Roles (RBAC) *(Próxima Etapa)*
-> **Nota:** Las tablas `users` y `clients` ya quedan creadas en SQLite desde la Etapa 2 y el formulario de contacto ya registra automáticamente cada consulta entrante como `LEAD`.
+## Etapa 3: Catálogo de Clientes (Mini-CRM), Usuarios Internos y Roles (RBAC) *(Implementada)*
+> **Nota:** Las tablas `users` y `clients` operan en SQLite con consultas parametrizadas (`node:sqlite`), el formulario de contacto registra automáticamente cada consulta entrante como `LEAD`, y `AdminBackoffice.svelte` expone el ABM interactivo de socios y clientes.
 
 ### 3.1. Usuarios y Roles Internos (`RBAC`)
 | Rol | Destinatarios | Permisos |
 |---|---|---|
 | `SUPERADMIN` | Brian Benegas (`brianleft`) | Control total: Memorias RAG, Prompts IA, Modelos, Shadowban, Usuarios/Roles y Catálogo de Clientes. |
-| `PARTNER` | Socios (Thomas Pineda, Gastón Alejandro) | Gestión completa del Catálogo de Clientes/Leads, Parámetros comerciales (`settings`), Memorias RAG y métricas. |
+| `PARTNER` | Socios (Thomas Pineda `@thomas`, Gastón Alejandro `@gaston`) | Gestión completa del Catálogo de Clientes/Leads, Parámetros comerciales (`settings`), Memorias RAG y métricas. |
 | `SALES` | Equipo comercial / operadores | Gestión de Leads entrantes, cambio de estado comercial (`LEAD` → `DEMO` → `ACTIVE`), notas de seguimiento y alta de clientes. |
 | `VIEWER` | Colaboradores / consulta | Lectura del catálogo de clientes y estado de proyectos. |
 
 ### 3.2. Catálogo de Clientes y Leads (`clients`)
 - **Captura automática:** Todo mensaje enviado desde el formulario de contacto (incluso si SMTP aún no está configurado) se guarda automáticamente en la tabla `clients` con estado `LEAD`.
-- **Ficha de Cliente:**
+- **Ficha de Cliente (ABM en `AdminBackoffice.svelte`):**
   - Datos de contacto: Nombre, Empresa/Organización, Email, WhatsApp/Teléfono.
   - Plan de interés o contratado: `Emprendedor`, `Pequeña Empresa`, `Sistema a Medida`, `Chatbot IA` o `GovTech`.
-  - Estado del ciclo comercial: `LEAD` → `CONTACTED` → `DEMO` → `ACTIVE` → `PAUSED`.
-  - Notas internas del equipo y responsable asignado (`assigned_to`).
+  - Estado del ciclo comercial con filtros rápidos: `LEAD` → `CONTACTED` → `DEMO` → `ACTIVE` → `PAUSED`.
+  - Notas internas del equipo y responsable asignado (`assigned_to`: `@brianleft`, `@thomas`, `@gaston`).
 
 ---
 
-## Etapa 4: Observabilidad de Conversaciones y Plantillas Multi-Bot *(Futuro)*
+## Etapa 4: Observabilidad de Conversaciones y Plantillas Multi-Bot *(Próxima Etapa)*
 - **Auditoría de Conversaciones (`chat_logs`):** Registro anónimo de preguntas reales hechas al chatbot para detectar nuevas dudas frecuentes y convertirlas en memorias RAG con 1 clic.
 - **Catálogo de Bots por Cliente (`client_bots`):** Repositorio centralizado de prompts, catálogos y configuraciones MCP para los chatbots que Pidgeon Solutions despliega para sus propios clientes.
